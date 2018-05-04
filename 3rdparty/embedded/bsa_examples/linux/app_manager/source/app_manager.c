@@ -1480,6 +1480,7 @@ int app_mgr_config(void)
         rand_seed = tv.tv_sec * tv.tv_usec * getpid();
         app_xml_config.bd_addr[4] = rand_r(&rand_seed);
         app_xml_config.bd_addr[5] = rand_r(&rand_seed);
+        sprintf((char *)app_xml_config.name, "My BSA Bluetooth Device %02x%02x", app_xml_config.bd_addr[4], app_xml_config.bd_addr[5]);
         memcpy(app_xml_config.class_of_device, local_class_of_device, sizeof(DEV_CLASS));
         strncpy(app_xml_config.root_path, APP_DEFAULT_ROOT_PATH, sizeof(app_xml_config.root_path));
         app_xml_config.root_path[sizeof(app_xml_config.root_path) - 1] = '\0';
