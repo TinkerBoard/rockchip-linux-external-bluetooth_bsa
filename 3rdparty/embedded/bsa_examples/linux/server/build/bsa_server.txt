@@ -56,8 +56,8 @@ BSA_SERIAL_DEV_NAME = "/dev/btusb0"
 # 2- add a BSA server command line option to change the default baudrate to the specified
 #    baudrate.  This allows terminating and restarting bsa_server without having to
 #    disconnect the BT controller
-BSA_CHANGE_STARTUP_BAUDRATE = USERIAL_BAUD_1_5M
-BTA_CHANGE_PRM_BAUDRATE = USERIAL_BAUD_1_5M
+BSA_CHANGE_STARTUP_BAUDRATE = USERIAL_BAUD_3M
+BTA_CHANGE_PRM_BAUDRATE = USERIAL_BAUD_3M
 
 # include BTSNOOP file capture
 BTSNOOPDISP_INCLUDED = TRUE
@@ -589,17 +589,17 @@ ROLE_CONFIG_DEFAULT = ROLE_CONFIG_NO_ROLE_SWITCH
 ####
 # configure SCO and PCM interfaces at bsa_server startup
 ####
-BTM_SCO_PCM_INTF = FALSE
+BTM_SCO_PCM_INTF = TRUE
 # SCO routing: 0=PCM(default) 1=UART 2=CODEC 3=I2S
 #BTM_SCO_ROUTING = 0
 # PCM interface rate: 0=128 kHz(default) 1=256 kHz 2=512 kHz 3=1024 kHz 4=2048 kHz
-#BTM_PCM_INTF_RATE = 0
+BTM_PCM_INTF_RATE = 2
 # PCM frame type: 0=short(default) 1=long
-#BTM_PCM_FRAME_TYPE = 0
+BTM_PCM_FRAME_TYPE = 0
 # PCM sync mode: 0=slave(default) 1=master
-#BTM_PCM_SYNC_MODE = 0
+BTM_PCM_SYNC_MODE = 0
 # PCM clock mode: 0=slave(default) 1=master
-#BTM_PCM_CLOCK_MODE = 0
+BTM_PCM_CLOCK_MODE = 0
 
 # BLE device privacy support
 BTM_BLE_PRIVACY_SPT = TRUE
