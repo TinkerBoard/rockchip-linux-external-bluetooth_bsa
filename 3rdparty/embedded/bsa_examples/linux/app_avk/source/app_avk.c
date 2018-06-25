@@ -928,9 +928,11 @@ static void app_avk_cback(tBSA_AVK_EVT event, tBSA_AVK_MSG *p_data)
             }
 
             /* Change the code below based on which interface audio is going out to. */
-            /*char buffer[100];
-            sprintf(buffer, "amixer -q cset name='Headphone Playback Volume' '%d'", app_avk_cb.volume);
-            system(buffer);*/
+            char buffer[100];
+            sprintf(buffer, "amixer set Master Playback %d", app_avk_cb.volume * 100 / BSA_MAX_ABS_VOLUME);
+            if (-1 == system(buffer))
+                APP_ERROR1("app_avk_cback: set volume error: %d, volume: %d", errno, app_avk_cb.volume);
+
             app_avk_set_abs_vol_rsp(app_avk_cb.volume, p_data->abs_volume.handle, p_data->abs_volume.label);;
         }
         else
