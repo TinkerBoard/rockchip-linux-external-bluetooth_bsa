@@ -1,12 +1,16 @@
 # list of required include directories for the current application
 appincdir := $(appdir)/include \
              $(appdir)/../app_common/include \
-             $(appdir)/../app_ble/include
+             $(appdir)/../app_manager/include \
+             $(appdir)/../app_ble/include \
+             $(appdir)/../app_socket/include
 
 # list of required source directories for the current application
 appsrcdir := $(appdir)/source \
             $(appdir)/../app_common/source \
-            $(appdir)/../app_ble/source
+            $(appdir)/../app_manager/source \
+            $(appdir)/../app_ble/source \
+            $(appdir)/../app_socket/source
 
 # list of sources for the current application
 appsrcs := \
@@ -17,6 +21,7 @@ appsrcs := \
     app_ble_wifi_introducer.c \
     app_ble_client_xml.c \
     app_ble_client_db.c \
+    app_manager.c \
     app_disc.c \
     app_utils.c \
     app_dm.c \
@@ -26,8 +31,8 @@ appsrcs := \
     app_services.c \
     app_thread.c \
     app_mutex.c \
-    nanoxml.c
-
+    nanoxml.c \
+    app_socket.c
 
 # add the include and source directories to the whole project
 incdirs := $(incdirs) $(appincdir)

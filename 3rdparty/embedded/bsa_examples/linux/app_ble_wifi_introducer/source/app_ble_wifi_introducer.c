@@ -8,12 +8,15 @@
 **  Cypress Bluetooth Core. Proprietary and confidential.
 **
 *****************************************************************************/
-
+#include <pthread.h>
 #include "app_ble.h"
 #include "app_thread.h"
 #include "app_mutex.h"
 #include "app_utils.h"
 #include "app_dm.h"
+#include "app_socket.h"
+#include "app_xml_param.h"
+#include "app_manager.h"
 #include "app_ble_wifi_introducer.h"
 
 /*
@@ -35,11 +38,17 @@
 static tAPP_THREAD  join_thread;
 static tAPP_MUTEX join_mutex;
 static BOOLEAN wifi_join_return_value = TRUE; // This is for simulate Wifi Join Function
+
+#ifdef DUEROS
+static UINT8 wifi_introducer_device_name[ ] = "DuerOS_1";
+#else
 static UINT8 wifi_introducer_device_name[ ] = "WiFiInt"; // This is for Adv only
+#endif
+
 static UINT8 attr_index_notify;
 
 /* UUID value of Apollo config network info */
-static UINT8 wifi_introducer_service_uuid[LEN_UUID_128] = 
+static UINT8 wifi_introducer_service_uuid[LEN_UUID_128] =
         {0x23, 0x20, 0x56, 0x7c, 0x05, 0xcf, 0x6e, 0xb4, 0xc3, 0x41, 0x77, 0x28, 0x51, 0x82, 0x7e, 0x1b};
 static UINT8 wifi_introducer_characteristic_nw_security_uuid[LEN_UUID_128] =
         {0xa1, 0x93, 0xcd, 0xa5, 0x84, 0x0a, 0xaf, 0xbb, 0x4a, 0x4c, 0xbb, 0xed, 0xa4, 0xab, 0xc2, 0xca};
@@ -64,6 +73,39 @@ static UINT8 wifi_introducer_char_battery_level_value = 0;
 static tAPP_BLE_WIFI_INTRODUCER_CB app_ble_wifi_introducer_cb;
 static BOOLEAN wifi_introducer_ssid_name         = FALSE;
 static BOOLEAN wifi_introducer_ssid_password   = FALSE;
+
+#ifdef DUEROS
+/* DuerOS wifi introducer info */
+static UINT8 dueros_wifi_introducer_service_uuid[LEN_UUID_128] =
+        {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x11, 0x11, 0x00, 0x00};
+static UINT8 dueros_wifi_introducer_characteristic_uuid[LEN_UUID_128] =
+        {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x22, 0x22, 0x00, 0x00};
+static UINT8 dueros_wifi_introducer_descriptor_uuid[LEN_UUID_128] =
+        {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x02, 0x29, 0x00, 0x00};
+
+/* Must be the same as the maximum length of data sent by ble_send_data_cb,
+ * otherwise the data will be transmitted to the dueros app will be wrong,
+ * the reason is unknown.
+ */
+#define DUEROS_SOCKET_RECV_LEN 20
+#define DUEROS_CHARACTERISTIC_VALUE       "DUEROS_VALUE"
+static UINT8 dueros_characteristic_value[APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE] =
+                        DUEROS_CHARACTERISTIC_VALUE;
+
+static pthread_t dueros_tid = 0;
+static int dueros_socket_done = 0;
+static int dueros_socket_fd = -1;
+static char dueros_socket_path[] = "/data/bsa/config/socket_dueros";
+
+static int dueros_socket_send(char *msg, int len);
+static void *dueros_socket_recieve(void *arg);
+static int dueros_socket_thread_create(void);
+static void dueros_socket_thread_delete(void);
+static int dueros_wifi_introducer_create_gatt_database(void);
+static void dueros_wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
+                  tBSA_BLE_MSG *p_data);
+static void dueros_wifi_introducer_ccc_callback(tBSA_BLE_EVT event, tBSA_BLE_MSG *p_data);
+#endif
 
 /*
  * Local functions
@@ -150,6 +192,7 @@ static void app_ble_wifi_introducer_set_advertisement_data(void)
 {
     tBSA_DM_BLE_AD_MASK data_mask;
     tBSA_DM_SET_CONFIG bt_config;
+    tBSA_DM_SET_CONFIG bt_scan_rsp;
     tBSA_STATUS bsa_status;
     UINT8 len = 0;
 
@@ -165,19 +208,27 @@ static void app_ble_wifi_introducer_set_advertisement_data(void)
     /* Use services flag to show above services if required on the peer device */
     data_mask = BSA_DM_BLE_AD_BIT_FLAGS | BSA_DM_BLE_AD_BIT_PROPRIETARY |
                          BSA_DM_BLE_AD_BIT_SERVICE_128;
- 
+
     bt_config.adv_config.flag = BSA_DM_BLE_GEN_DISC_FLAG | BSA_DM_BLE_BREDR_NOT_SPT;
     bt_config.adv_config.adv_data_mask = data_mask;
-    bt_config.adv_config.is_scan_rsp = FALSE;
 
+#ifdef DUEROS
+    /* TRUE：把内容放到scan response中，FALSE: 放到adv中 */
+    bt_config.adv_config.is_scan_rsp = TRUE;
+    memcpy(bt_config.adv_config.services_128b.uuid128,
+                   dueros_wifi_introducer_service_uuid, LEN_UUID_128);
+#else
+    bt_config.adv_config.is_scan_rsp = FALSE;
     memcpy(bt_config.adv_config.services_128b.uuid128,
                    wifi_introducer_service_uuid, LEN_UUID_128);
+#endif
     bt_config.adv_config.services_128b.list_cmpl = TRUE;
     len += LEN_UUID_128;
 
     bt_config.adv_config.proprietary.num_elem = 1;
     bt_config.adv_config.proprietary.elem[0].adv_type = BTM_BLE_ADVERT_TYPE_NAME_COMPLETE;
     len += 2;
+
     bt_config.adv_config.proprietary.elem[0].len = strlen((char *)wifi_introducer_device_name);
     strcpy((char *)bt_config.adv_config.proprietary.elem[0].val, (char *)wifi_introducer_device_name);
     len += bt_config.adv_config.proprietary.elem[0].len;
@@ -210,6 +261,8 @@ static int app_ble_wifi_introducer_create_gatt_database(void)
     tBT_UUID service_uuid;
     tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE attr;
 
+    APP_INFO0("app_ble_wifi_introducer_create_gatt_database");
+
     /* create a BLE service */
     service_uuid.len = LEN_UUID_128;
     memcpy(service_uuid.uu.uuid128, wifi_introducer_service_uuid, MAX_UUID_SIZE);
@@ -219,7 +272,7 @@ static int app_ble_wifi_introducer_create_gatt_database(void)
         APP_ERROR0("Service Create Fail");
         return -1;
     }
-	
+
     /* Declare characteristic used to notify/indicate change */
     memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
     attr.attr_UUID.len = LEN_UUID_128;
@@ -227,7 +280,7 @@ static int app_ble_wifi_introducer_create_gatt_database(void)
                      MAX_UUID_SIZE);
     attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
     attr.perm = BSA_GATT_PERM_READ;
-    attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_NOTIFY | 
+    attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_NOTIFY |
                     BSA_GATT_CHAR_PROP_BIT_INDICATE;
     attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR;
     attr.val_len = attr.max_val_len = sizeof(wifi_introducer_char_notify_value);
@@ -264,7 +317,7 @@ static int app_ble_wifi_introducer_create_gatt_database(void)
     attr.p_cback = app_ble_wifi_introducer_nw_security_callback;
     app_ble_wifi_introducer_add_char(&attr);
 
-    /* Declare characteristic for  SSID  */
+    /* Declare characteristic for SSID  */
     memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
     attr.attr_UUID.len = LEN_UUID_128;
     memcpy(&attr.attr_UUID.uu.uuid128, wifi_introducer_characteristic_nw_ssid_uuid,
@@ -287,7 +340,7 @@ static int app_ble_wifi_introducer_create_gatt_database(void)
                      MAX_UUID_SIZE);
     attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
     attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_READ_ENCRYPTED |
-                       BSA_GATT_PERM_WRITE | BSA_GATT_PERM_WRITE_ENCRYPTED;	
+                       BSA_GATT_PERM_WRITE | BSA_GATT_PERM_WRITE_ENCRYPTED;
     attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_WRITE;
     attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR;
     attr.val_len = strlen(CLIENT_AP_PASSPHRASE);
@@ -546,7 +599,7 @@ static void app_ble_wifi_introducer_profile_cback(tBSA_BLE_EVT event,
     tBSA_DM_BLE_ADV_PARAM adv_param;
     int attr_len_to_copy;
 
-    APP_DEBUG1("app_ble_wifi_introducer_profile_cback event = %d ", event);
+    APP_DEBUG1("event = %d ", event);
 
     switch (event)
     {
@@ -638,6 +691,10 @@ static void app_ble_wifi_introducer_profile_cback(tBSA_BLE_EVT event,
 
     case BSA_BLE_SE_START_EVT:
         APP_INFO1("BSA_BLE_SE_START_EVT status:%d", p_data->ser_start.status);
+
+#ifdef DUEROS
+        dueros_socket_thread_create();
+#endif
         break;
 
     case BSA_BLE_SE_STOP_EVT:
@@ -652,8 +709,8 @@ static void app_ble_wifi_introducer_profile_cback(tBSA_BLE_EVT event,
         send_server_resp.status = p_data->ser_read.status;
         send_server_resp.handle = p_data->ser_read.handle;
         send_server_resp.offset = p_data->ser_read.offset;
-	 attr_index = app_ble_wifi_introducer_find_attr_index_by_attr_id(p_data->ser_read.handle);
-	 APP_INFO1("BSA_BLE_SE_READ_EVT attr_index:%d", attr_index);
+	    attr_index = app_ble_wifi_introducer_find_attr_index_by_attr_id(p_data->ser_read.handle);
+	    APP_INFO1("BSA_BLE_SE_READ_EVT attr_index:%d", attr_index);
         if (attr_index < 0)
         {
             APP_ERROR0("Cannot find matched attr_id");
@@ -684,12 +741,12 @@ static void app_ble_wifi_introducer_profile_cback(tBSA_BLE_EVT event,
         APP_INFO1("BSA_BLE_SE_WRITE_EVT trans_id:%d, conn_id:%d, handle:%d",
             p_data->ser_write.trans_id, p_data->ser_write.conn_id, p_data->ser_write.handle);
 
-	 attr_index = app_ble_wifi_introducer_find_attr_index_by_attr_id(p_data->ser_read.handle);
+	    attr_index = app_ble_wifi_introducer_find_attr_index_by_attr_id(p_data->ser_read.handle);
         APP_INFO1("BSA_BLE_SE_WRITE_EVT attr_index:%d", attr_index);
         if (attr_index < 0)
         {
             APP_ERROR0("Cannot find matched attr_id");
-	     break;
+	        break;
         }
         if (p_data->ser_write.len >= app_ble_wifi_introducer_cb.attr[attr_index].max_val_len)
             p_data->ser_write.len = app_ble_wifi_introducer_cb.attr[attr_index].max_val_len;
@@ -769,6 +826,10 @@ static void app_ble_wifi_introducer_profile_cback(tBSA_BLE_EVT event,
         APP_INFO1("conn_id:0x%x", p_data->ser_close.conn_id);
         APP_INFO1("app_ble_wifi_introducer_connection_down  conn_id:%d reason:%d", p_data->ser_close.conn_id, p_data->ser_close.reason);
 
+#ifdef DUEROS
+        dueros_socket_thread_delete();
+#endif
+
         app_ble_wifi_introducer_cb.conn_id = BSA_BLE_INVALID_CONN;
 
         /* start low advertisements */
@@ -831,7 +892,11 @@ void app_ble_wifi_introducer_gatt_server_init(void)
     app_ble_wifi_introducer_register();
     GKI_delay(1000);
 
+#ifdef DUEROS
+    dueros_wifi_introducer_create_gatt_database();
+#else
     app_ble_wifi_introducer_create_gatt_database();
+#endif
 
     /* start service */
     for (index = 0; index < APP_BLE_WIFI_INTRODUCER_ATTRIBUTE_MAX; index++)
@@ -841,7 +906,7 @@ void app_ble_wifi_introducer_gatt_server_init(void)
             app_ble_wifi_introducer_start_service(app_ble_wifi_introducer_cb.attr[index].service_id);
         }
     }
-  
+
     GKI_delay(1000);
 
     /* Set the advertising parameters */
@@ -1042,7 +1107,7 @@ static void is_ssid_configured(void)
         }
 
         app_unlock_mutex(&join_mutex);
-     }
+    }
 }
 
 /*******************************************************************************
@@ -1279,6 +1344,8 @@ static int app_ble_wifi_introducer_send_notification(void)
     memcpy(ble_sendind_param.value, app_ble_wifi_introducer_cb.attr[attr_index_notify].p_val, ble_sendind_param.data_len);
     ble_sendind_param.need_confirm = FALSE; // Notification
 
+    APP_DUMP("send notification", (UINT8*)ble_sendind_param.value, ble_sendind_param.data_len);
+
     status = BSA_BleSeSendInd(&ble_sendind_param);
     if (status != BSA_SUCCESS)
     {
@@ -1363,3 +1430,163 @@ int app_ble_wifi_introducer_create_wifi_join_thread(void)
     }
     return 0;
 }
+
+/*******************************************************************************
+ **
+ ** Description   dueros wifi introdecer function implementations
+ **
+ *******************************************************************************/
+#ifdef DUEROS
+static int dueros_socket_send(char *msg, int len) {
+    return socket_send(dueros_socket_fd, msg, len);
+}
+
+static void *dueros_socket_recieve(void *arg) {
+    int bytes = 0;
+    char data[DUEROS_SOCKET_RECV_LEN];
+    int buf_size = app_ble_wifi_introducer_cb.attr[attr_index_notify].max_val_len;
+
+    dueros_socket_fd = setup_socket_client(dueros_socket_path);
+    if (dueros_socket_fd < 0) {
+        APP_ERROR0("Fail to connect server socket\n");
+        goto exit;
+    }
+
+    while (dueros_socket_done) {
+        memset(data, 0, sizeof(data));
+        bytes = socket_recieve(dueros_socket_fd, data, sizeof(data));
+        if (bytes <= 0) {
+            APP_DEBUG0("Server leaved, break\n");
+            break;
+        }
+
+        //APP_DEBUG1("wifi introdecer socket recv len: %d\n", bytes);
+        //APP_DUMP("recv data", (UINT8*)data, bytes);
+
+        if (buf_size >= bytes) {
+            app_ble_wifi_introducer_cb.attr[attr_index_notify].val_len = bytes;
+            memcpy(app_ble_wifi_introducer_cb.attr[attr_index_notify].p_val, data, bytes);
+            app_ble_wifi_introducer_send_message();
+        } else {
+            APP_ERROR1("Socket recv overflow, bytes: %d, buf_size: %d\n", bytes, buf_size);
+        }
+    }
+
+exit:
+    APP_DEBUG0("Exit dueros socket thread\n");
+    pthread_exit(0);
+}
+
+static int dueros_socket_thread_create(void) {
+    dueros_socket_done = 1;
+    if (pthread_create(&dueros_tid, NULL, dueros_socket_recieve, NULL)) {
+        APP_ERROR0("Create dueros socket thread failed\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+static void dueros_socket_thread_delete(void) {
+    dueros_socket_done = 0;
+    teardown_socket_client(dueros_socket_fd);
+
+    if (dueros_tid) {
+        pthread_join(dueros_tid, NULL);
+        dueros_tid = 0;
+    }
+}
+
+static void dueros_wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
+                  tBSA_BLE_MSG *p_data)
+{
+    int attr_index;
+    int val_len;
+
+    APP_INFO0("dueros_wifi_introducer_ssid_password_callback");
+
+    if (event == BSA_BLE_SE_WRITE_EVT)
+    {
+	    attr_index = app_ble_wifi_introducer_find_attr_index_by_attr_id(p_data->ser_write.handle);
+        if (attr_index < 0)
+        {
+            APP_ERROR0("Cannot find matched attr_id");
+	        return;
+        }
+
+        val_len = app_ble_wifi_introducer_cb.attr[attr_index].val_len;
+        if (val_len >= APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE)
+        {
+            APP_ERROR0("Wrong wifi_introducer_char_nw_ssid_value length");
+	        return;
+        }
+        dueros_characteristic_value[val_len] = 0;
+
+        //APP_DUMP("callback write value", dueros_characteristic_value, val_len);
+        dueros_socket_send((char*)dueros_characteristic_value, val_len);
+    }
+}
+
+static void dueros_wifi_introducer_ccc_callback(tBSA_BLE_EVT event,
+            tBSA_BLE_MSG *p_data)
+{
+    if (event == BSA_BLE_SE_WRITE_EVT)
+    {
+        APP_INFO0("dueros_wifi_introducer_ccc_callback");
+        APP_INFO1("wifi_introducer_characteristic_notify_characteristic_client_configuration = %d" ,
+            wifi_introducer_characteristic_notify_characteristic_client_configuration);
+    }
+
+    //dueros_socket_send((char*)&wifi_introducer_characteristic_notify_characteristic_client_configuration, sizeof(UINT16));
+}
+
+static int dueros_wifi_introducer_create_gatt_database(void)
+{
+    int srvc_attr_index;
+    tBT_UUID service_uuid;
+    tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE attr;
+
+    APP_INFO0("dueros_wifi_introducer_create_gatt_database");
+
+    service_uuid.len = LEN_UUID_128;
+    memcpy(service_uuid.uu.uuid128, dueros_wifi_introducer_service_uuid, MAX_UUID_SIZE);
+    srvc_attr_index = app_ble_wifi_introducer_create_service(&service_uuid, 20);
+    if (srvc_attr_index < 0)
+    {
+        APP_ERROR0("DuerOS Wifi Config Service Create Fail");
+        return -1;
+    }
+
+    memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
+    attr.attr_UUID.len = LEN_UUID_128;
+    memcpy(&attr.attr_UUID.uu.uuid128, dueros_wifi_introducer_characteristic_uuid, MAX_UUID_SIZE);
+    attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
+    attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_WRITE; //17
+    attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_WRITE |
+                    BSA_GATT_CHAR_PROP_BIT_NOTIFY | BSA_GATT_CHAR_PROP_BIT_INDICATE |
+                    BSA_GATT_CHAR_PROP_BIT_WRITE_NR;
+    //attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_WRITE |
+    //                BSA_GATT_CHAR_PROP_BIT_WRITE_NR; //14
+
+    attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR;
+    attr.val_len = strlen(DUEROS_CHARACTERISTIC_VALUE);
+    attr.max_val_len = APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE - 1; // reserve one byte for end of string
+    attr.p_val = dueros_characteristic_value;
+    attr.p_cback = dueros_wifi_introducer_ssid_password_callback;
+    attr_index_notify = app_ble_wifi_introducer_add_char(&attr);
+
+    memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
+    attr.attr_UUID.len = LEN_UUID_128;
+    memcpy(&attr.attr_UUID.uu.uuid128, dueros_wifi_introducer_descriptor_uuid, MAX_UUID_SIZE);
+    attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
+    attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_WRITE; //17
+    attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR_DESCR;
+    attr.val_len = attr.max_val_len = sizeof(UINT16);
+    attr.p_val = &wifi_introducer_characteristic_notify_characteristic_client_configuration;
+    attr.p_cback = dueros_wifi_introducer_ccc_callback;
+    app_ble_wifi_introducer_add_char(&attr);
+
+    return 0;
+}
+#endif
+

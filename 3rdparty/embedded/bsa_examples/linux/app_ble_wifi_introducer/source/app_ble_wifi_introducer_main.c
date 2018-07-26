@@ -9,6 +9,7 @@
 **
 *****************************************************************************/
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "app_ble.h"
 #include "app_utils.h"
@@ -72,7 +73,11 @@ static void app_ble_wifi_introducer_display_menu (void)
 void app_ble_wifi_introducer_menu(void)
 {
     int choice;
-
+#ifdef DUEROS
+    while(1) {
+        sleep(1);
+    }
+#else
     do
     {
         app_ble_wifi_introducer_display_menu();
@@ -106,6 +111,7 @@ void app_ble_wifi_introducer_menu(void)
             break;
         }
     } while (choice != APP_BLE_WIFI_INTRODUCER_MENU_QUIT); /* While user don't exit sub-menu */
+#endif
 }
 
 /*******************************************************************************
