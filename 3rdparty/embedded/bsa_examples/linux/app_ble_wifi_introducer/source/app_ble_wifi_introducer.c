@@ -975,6 +975,54 @@ static void app_ble_wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
 
 /*******************************************************************************
 **
+** Function         start_wpa_supplicant
+**
+** Description      wpa supplicant
+**
+** Returns          BOOLEAN
+**
+*******************************************************************************/
+static BOOLEAN start_wpa_supplicant(void)
+{
+    FILE *fp = NULL;
+    if ((fp = fopen("/data/bsa/wpa_supplicant.conf", "w+")) == NULL)
+    {
+        APP_ERROR0("open bsa wpa_supplicant.conf failed");
+        return FALSE;
+    }
+
+    fprintf(fp, "%s\n", "ctrl_interface=/var/run/wpa_supplicant");
+    fprintf(fp, "%s\n", "ap_scan=1");
+    fprintf(fp, "%s\n", "network={");
+    fprintf(fp, "%s%s%s\n", "ssid=\"", wifi_introducer_char_nw_ssid_value, "\"");
+    fprintf(fp, "%s%s%s\n", "psk=\"", wifi_introducer_char_nw_passphrase_value, "\"");
+    fprintf(fp, "%s\n", "key_mgmt=WPA-PSK");
+    fprintf(fp, "%s\n", "}");
+
+    fclose(fp);
+
+    if (-1 == system("killall wpa_supplicant; dhcpcd -k wlan0; killall dhcpcd;"
+                   "ifconfig wlan0 0.0.0.0")) {
+        APP_ERROR0("killall wpa_supplicant dhcpcd failed");
+        return FALSE;
+    }
+
+    if (-1 == system("wpa_supplicant -Dnl80211 -i wlan0 "
+                   "-c /data/bsa/wpa_supplicant.conf &")) {
+        APP_ERROR0("start wpa_supplicant failed");
+        return FALSE;
+    }
+
+    if (-1 == system("dhcpcd wlan0 -t 0 &")) {
+        APP_ERROR0("dhcpcd failed");
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+/*******************************************************************************
+**
 ** Function         is_ssid_configured
 **
 ** Description      Check if configured
@@ -987,7 +1035,13 @@ static void is_ssid_configured(void)
     if (wifi_introducer_ssid_name && wifi_introducer_ssid_password)
     {
         APP_INFO0("SSID configured");
-	 app_unlock_mutex(&join_mutex);
+
+        if (!start_wpa_supplicant())
+        {
+            APP_ERROR0("start wpa_supplicant failed");
+        }
+
+        app_unlock_mutex(&join_mutex);
      }
 }
 
