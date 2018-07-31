@@ -8,15 +8,17 @@
 **  Cypress Bluetooth Core. Proprietary and confidential.
 **
 *****************************************************************************/
+#include <stdlib.h>
 #include <pthread.h>
+#include <sys/time.h>
+#include <unistd.h>
+#include "bsa_api.h"
 #include "app_ble.h"
 #include "app_thread.h"
 #include "app_mutex.h"
 #include "app_utils.h"
 #include "app_dm.h"
 #include "app_socket.h"
-#include "app_xml_param.h"
-#include "app_manager.h"
 #include "app_ble_wifi_introducer.h"
 
 /*
@@ -40,7 +42,7 @@ static tAPP_MUTEX join_mutex;
 static BOOLEAN wifi_join_return_value = TRUE; // This is for simulate Wifi Join Function
 
 #ifdef DUEROS
-static UINT8 wifi_introducer_device_name[ ] = "DuerOS_1";
+BD_NAME wifi_introducer_device_name;
 #else
 static UINT8 wifi_introducer_device_name[ ] = "WiFiInt"; // This is for Adv only
 #endif
@@ -97,6 +99,7 @@ static int dueros_socket_done = 0;
 static int dueros_socket_fd = -1;
 static char dueros_socket_path[] = "/data/bsa/config/socket_dueros";
 
+static void dueros_set_device_name(void);
 static int dueros_socket_send(char *msg, int len);
 static void *dueros_socket_recieve(void *arg);
 static int dueros_socket_thread_create(void);
@@ -206,35 +209,57 @@ static void app_ble_wifi_introducer_set_advertisement_data(void)
     bt_config.config_mask = BSA_DM_CONFIG_BLE_ADV_CONFIG_MASK;
 
     /* Use services flag to show above services if required on the peer device */
-    data_mask = BSA_DM_BLE_AD_BIT_FLAGS | BSA_DM_BLE_AD_BIT_PROPRIETARY |
-                         BSA_DM_BLE_AD_BIT_SERVICE_128;
+    data_mask = BSA_DM_BLE_AD_BIT_FLAGS | BSA_DM_BLE_AD_BIT_SERVICE_128;
 
     bt_config.adv_config.flag = BSA_DM_BLE_GEN_DISC_FLAG | BSA_DM_BLE_BREDR_NOT_SPT;
     bt_config.adv_config.adv_data_mask = data_mask;
+    bt_config.adv_config.is_scan_rsp = FALSE;
 
 #ifdef DUEROS
-    /* TRUE：把内容放到scan response中，FALSE: 放到adv中 */
-    bt_config.adv_config.is_scan_rsp = TRUE;
     memcpy(bt_config.adv_config.services_128b.uuid128,
                    dueros_wifi_introducer_service_uuid, LEN_UUID_128);
 #else
-    bt_config.adv_config.is_scan_rsp = FALSE;
     memcpy(bt_config.adv_config.services_128b.uuid128,
                    wifi_introducer_service_uuid, LEN_UUID_128);
 #endif
+
     bt_config.adv_config.services_128b.list_cmpl = TRUE;
     len += LEN_UUID_128;
 
-    bt_config.adv_config.proprietary.num_elem = 1;
-    bt_config.adv_config.proprietary.elem[0].adv_type = BTM_BLE_ADVERT_TYPE_NAME_COMPLETE;
-    len += 2;
-
-    bt_config.adv_config.proprietary.elem[0].len = strlen((char *)wifi_introducer_device_name);
-    strcpy((char *)bt_config.adv_config.proprietary.elem[0].val, (char *)wifi_introducer_device_name);
-    len += bt_config.adv_config.proprietary.elem[0].len;
-    bt_config.adv_config.len = len;
-
     bsa_status = BSA_DmSetConfig(&bt_config);
+    if (bsa_status != BSA_SUCCESS)
+    {
+        APP_ERROR1("BSA_DmSetConfig failed status:%d ", bsa_status);
+        return;
+    }
+
+    /*set scan response*/
+
+    /* Set Bluetooth configuration */
+    BSA_DmSetConfigInit(&bt_scan_rsp);
+
+    /* Obviously */
+    bt_scan_rsp.enable = TRUE;
+
+    /* Configure the Advertisement Data parameters */
+    bt_scan_rsp.config_mask = BSA_DM_CONFIG_BLE_ADV_CONFIG_MASK;
+
+    /* Use services flag to show above services if required on the peer device */
+    data_mask = BSA_DM_BLE_AD_BIT_FLAGS | BSA_DM_BLE_AD_BIT_PROPRIETARY;
+
+    bt_scan_rsp.adv_config.flag = BSA_DM_BLE_GEN_DISC_FLAG | BSA_DM_BLE_BREDR_NOT_SPT;
+    bt_scan_rsp.adv_config.adv_data_mask = data_mask;
+    bt_scan_rsp.adv_config.is_scan_rsp = TRUE;
+
+    bt_scan_rsp.adv_config.proprietary.num_elem = 1;
+    bt_scan_rsp.adv_config.proprietary.elem[0].adv_type = BTM_BLE_ADVERT_TYPE_NAME_COMPLETE;
+    len = 0;
+    bt_scan_rsp.adv_config.proprietary.elem[0].len = strlen((char *)wifi_introducer_device_name);
+    strcpy((char *)bt_scan_rsp.adv_config.proprietary.elem[0].val, (char *)wifi_introducer_device_name);
+    len += bt_scan_rsp.adv_config.proprietary.elem[0].len;
+    bt_scan_rsp.adv_config.len = len;
+
+    bsa_status = BSA_DmSetConfig(&bt_scan_rsp);
     if (bsa_status != BSA_SUCCESS)
     {
         APP_ERROR1("BSA_DmSetConfig failed status:%d ", bsa_status);
@@ -868,6 +893,11 @@ void app_ble_wifi_introducer_init(void)
 {
     memset(&app_ble_wifi_introducer_cb, 0, sizeof(app_ble_wifi_introducer_cb));
     app_ble_wifi_introducer_cb.conn_id = BSA_BLE_INVALID_CONN;
+
+#ifdef DUEROS
+    dueros_set_device_name();
+#endif
+
     app_init_mutex(&join_mutex);
 }
 
@@ -1437,6 +1467,21 @@ int app_ble_wifi_introducer_create_wifi_join_thread(void)
  **
  *******************************************************************************/
 #ifdef DUEROS
+static void dueros_set_device_name(void) {
+    struct timeval tv;
+    unsigned int rand_seed;
+    UINT8 rand0;
+    UINT8 rand1;
+
+    memset((char *)wifi_introducer_device_name, 0, BD_NAME_LEN + 1);
+
+    gettimeofday(&tv, NULL);
+    rand_seed = tv.tv_sec * tv.tv_usec * getpid();
+    rand0 = rand_r(&rand_seed);
+    rand1 = rand_r(&rand_seed);
+    sprintf((char *)wifi_introducer_device_name, "DuerOS_%02x%02x", rand0, rand1);
+}
+
 static int dueros_socket_send(char *msg, int len) {
     return socket_send(dueros_socket_fd, msg, len);
 }
