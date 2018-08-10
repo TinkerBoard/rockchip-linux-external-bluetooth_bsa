@@ -1468,18 +1468,10 @@ int app_ble_wifi_introducer_create_wifi_join_thread(void)
  *******************************************************************************/
 #ifdef DUEROS
 static void dueros_set_device_name(void) {
-    struct timeval tv;
-    unsigned int rand_seed;
-    UINT8 rand0;
-    UINT8 rand1;
-
     memset((char *)wifi_introducer_device_name, 0, BD_NAME_LEN + 1);
-
-    gettimeofday(&tv, NULL);
-    rand_seed = tv.tv_sec * tv.tv_usec * getpid();
-    rand0 = rand_r(&rand_seed);
-    rand1 = rand_r(&rand_seed);
-    sprintf((char *)wifi_introducer_device_name, "DuerOS_%02x%02x", rand0, rand1);
+    sprintf((char *)wifi_introducer_device_name, "DuerOS_");
+    app_get_mac_address((char *)wifi_introducer_device_name + sizeof("DUEROS_") - 1, 5, "wlan0");
+    APP_DEBUG1("Bt Device Name: %s", (char *)wifi_introducer_device_name);
 }
 
 static int dueros_socket_send(char *msg, int len) {

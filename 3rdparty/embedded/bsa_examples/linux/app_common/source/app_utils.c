@@ -18,6 +18,9 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <ctype.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <arpa/inet.h>
 
 #include "bsa_api.h"
 
@@ -618,4 +621,33 @@ int app_hex_read(FILE *p_file, UINT8 *p_type, UINT16 *p_offset, UINT8 *p_data, U
     }
 
     return app_hex_convert(p_type, p_offset, p_data, p_len);
+}
+
+int app_get_mac_address(char* mac, int len, const char* inter)
+{
+    int sock_mac;
+    struct ifreq ifr_mac;
+    char mac_addr[30] = {0};
+
+    sock_mac = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock_mac == -1) {
+        printf("create mac socket failed.\n");
+        return -1;
+    }
+    memset(&ifr_mac,0,sizeof(ifr_mac));
+    strncpy(ifr_mac.ifr_name, inter, sizeof(ifr_mac.ifr_name)-1);
+
+    if ((ioctl( sock_mac, SIOCGIFHWADDR, &ifr_mac)) < 0) {
+        printf("Mac socket ioctl failed.\n");
+        close(sock_mac);
+        return -1;
+    }
+    sprintf(mac_addr,"%02X%02X",
+            (unsigned char)ifr_mac.ifr_hwaddr.sa_data[4],
+            (unsigned char)ifr_mac.ifr_hwaddr.sa_data[5]);
+    snprintf(mac, len, "%s", mac_addr);
+    printf("bluez5 %s mac:%s\n", inter, mac);
+    close(sock_mac);
+
+    return 0;
 }
