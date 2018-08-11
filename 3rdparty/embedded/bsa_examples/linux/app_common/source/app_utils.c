@@ -646,7 +646,6 @@ int app_get_mac_address(char* mac, int len, const char* inter)
             (unsigned char)ifr_mac.ifr_hwaddr.sa_data[4],
             (unsigned char)ifr_mac.ifr_hwaddr.sa_data[5]);
     snprintf(mac, len, "%s", mac_addr);
-    printf("bluez5 %s mac:%s\n", inter, mac);
     close(sock_mac);
 
     return 0;

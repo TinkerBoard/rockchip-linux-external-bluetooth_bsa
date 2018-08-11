@@ -1480,15 +1480,15 @@ int app_mgr_config(void)
         app_xml_config.name[sizeof(app_xml_config.name) - 1] = '\0';
         bdcpy(app_xml_config.bd_addr, local_bd_addr);
         /* let's use a random number for the last two bytes of the BdAddr */
-
-#ifdef DUEROS
-        sprintf((char *)app_xml_config.name, "DuerOS_");
-        app_get_mac_address((char *)app_xml_config.name + sizeof("DUEROS_") - 1, 5, "wlan0");
-#else
         gettimeofday(&tv, NULL);
         rand_seed = tv.tv_sec * tv.tv_usec * getpid();
         app_xml_config.bd_addr[4] = rand_r(&rand_seed);
         app_xml_config.bd_addr[5] = rand_r(&rand_seed);
+
+#ifdef DUEROS
+        sprintf((char *)app_xml_config.name, "%s", "DuerOS_");
+        app_get_mac_address((char *)app_xml_config.name + sizeof("DuerOS_") - 1, 5, "wlan0");
+#else
         sprintf((char *)app_xml_config.name, "My BSA Bluetooth Device %02x%02x", app_xml_config.bd_addr[4], app_xml_config.bd_addr[5]);
 #endif
 
