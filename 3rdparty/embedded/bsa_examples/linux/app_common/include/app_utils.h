@@ -220,6 +220,6 @@ UINT8 app_hex_char(UINT8 c);
  *******************************************************************************/
 int app_hex_read(FILE *p_file, UINT8 *p_type, UINT16 *p_offset, UINT8 *p_data, UINT16 *p_len);
 
-int app_get_mac_address(char* mac, int len, const char* inter);
+int app_get_mac_address(char* mac, int mac_len, const char* inter, char* bd_addr, int addr_len);
 #endif
 

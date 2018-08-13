@@ -1470,7 +1470,8 @@ int app_ble_wifi_introducer_create_wifi_join_thread(void)
 static void dueros_set_device_name(void) {
     memset((char *)wifi_introducer_device_name, 0, BD_NAME_LEN + 1);
     sprintf((char *)wifi_introducer_device_name, "%s", "DuerOS_");
-    app_get_mac_address((char *)wifi_introducer_device_name + sizeof("DuerOS_") - 1, 5, "wlan0");
+    app_get_mac_address((char *)wifi_introducer_device_name + sizeof("DuerOS_") - 1,
+        5, "wlan0", NULL, 0);
     APP_DEBUG1("Bt Device Name: %s", (char *)wifi_introducer_device_name);
 }
 

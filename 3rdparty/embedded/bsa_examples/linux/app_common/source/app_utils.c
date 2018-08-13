@@ -623,7 +623,7 @@ int app_hex_read(FILE *p_file, UINT8 *p_type, UINT16 *p_offset, UINT8 *p_data, U
     return app_hex_convert(p_type, p_offset, p_data, p_len);
 }
 
-int app_get_mac_address(char* mac, int len, const char* inter)
+int app_get_mac_address(char* mac, int mac_len, const char* inter, char* bd_addr, int addr_len)
 {
     int sock_mac;
     struct ifreq ifr_mac;
@@ -642,10 +642,16 @@ int app_get_mac_address(char* mac, int len, const char* inter)
         close(sock_mac);
         return -1;
     }
-    sprintf(mac_addr,"%02X%02X",
+    sprintf(mac_addr, "%02X%02X",
             (unsigned char)ifr_mac.ifr_hwaddr.sa_data[4],
             (unsigned char)ifr_mac.ifr_hwaddr.sa_data[5]);
-    snprintf(mac, len, "%s", mac_addr);
+    snprintf(mac, mac_len, "%s", mac_addr);
+
+    if(bd_addr != NULL) {
+        int i;
+        for(i = 0; i < addr_len; i++)
+            bd_addr[i] = ifr_mac.ifr_hwaddr.sa_data[i];
+    }
     close(sock_mac);
 
     return 0;
