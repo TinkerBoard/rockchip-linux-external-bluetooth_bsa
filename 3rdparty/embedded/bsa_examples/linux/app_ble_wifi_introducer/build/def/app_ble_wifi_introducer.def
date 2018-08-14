@@ -2,13 +2,15 @@
 appincdir := $(appdir)/include \
              $(appdir)/../app_common/include \
              $(appdir)/../app_ble/include \
-             $(appdir)/../app_socket/include
+             $(appdir)/../app_socket/include \
+             $(appdir)/../app_manager/include
 
 # list of required source directories for the current application
 appsrcdir := $(appdir)/source \
             $(appdir)/../app_common/source \
             $(appdir)/../app_ble/source \
-            $(appdir)/../app_socket/source
+            $(appdir)/../app_socket/source \
+            $(appdir)/../app_manager/source
 
 # list of sources for the current application
 appsrcs := \
@@ -29,7 +31,8 @@ appsrcs := \
     app_thread.c \
     app_mutex.c \
     nanoxml.c \
-    app_socket.c
+    app_socket.c \
+    app_manager.c
 
 # add the include and source directories to the whole project
 incdirs := $(incdirs) $(appincdir)

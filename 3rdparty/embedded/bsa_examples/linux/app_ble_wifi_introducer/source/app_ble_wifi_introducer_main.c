@@ -12,13 +12,19 @@
 #include <unistd.h>
 
 #include "app_ble.h"
+#include "bsa_avk_api.h"
+#include "app_xml_param.h"
 #include "app_utils.h"
 #include "app_mgt.h"
+#include "app_dm.h"
+#include "app_manager.h"
 #include "app_ble_wifi_introducer.h"
 
 /*
  * Defines
  */
+extern tAPP_MGR_CB app_mgr_cb;
+int ble_wifi_config = 0;
 
 /* BLE WIFI menu items */
 enum
@@ -72,12 +78,12 @@ static void app_ble_wifi_introducer_display_menu (void)
  *******************************************************************************/
 void app_ble_wifi_introducer_menu(void)
 {
-    int choice;
 #ifdef DUEROS
-    while(1) {
+    while(ble_wifi_config) {
         sleep(1);
     }
 #else
+    int choice;
     do
     {
         app_ble_wifi_introducer_display_menu();
@@ -164,10 +170,12 @@ BOOLEAN app_ble_wifi_mgt_callback(tBSA_MGT_EVT event, tBSA_MGT_MSG *p_data)
  *******************************************************************************/
 int main(int argc, char **argv)
 {
-    int status;
+    int status, mode;
 
     APP_INFO0("WiFi Introducer Sensor Start");
-	
+
+    ble_wifi_config = 1;
+
     app_ble_wifi_introducer_create_wifi_join_thread();
 
     /* Initialize BLE application */
@@ -180,16 +188,36 @@ int main(int argc, char **argv)
 
     /* Open connection to BSA Server */
     app_mgt_init();
-    if (app_mgt_open(NULL, app_ble_wifi_mgt_callback) < 0)
-    {
+    if (app_mgt_open(NULL, app_ble_wifi_mgt_callback) < 0) {
         APP_ERROR0("Unable to connect to server");
         return -1;
     }
 
+    /* Init XML state machine */
+    app_xml_init();
+
+    if (app_mgr_config()) {
+        APP_ERROR0("Couldn't configure successfully, exiting");
+        return -1;
+    }
+
+    /* Display FW versions */
+    app_mgr_read_version();
+
+    /* Get the current Stack mode */
+    mode = app_dm_get_dual_stack_mode();
+    if (mode < 0) {
+        APP_ERROR0("app_dm_get_dual_stack_mode failed");
+        return -1;
+    } else {
+        /* Save the current DualStack mode */
+        app_mgr_cb.dual_stack_mode = mode;
+        APP_INFO1("Current DualStack mode:%s", app_mgr_get_dual_stack_mode_desc());
+    }
+
     /* Start BLE application */
     status = app_ble_start();
-    if (status < 0)
-    {
+    if (status < 0) {
         APP_ERROR0("Couldn't Start BLE app, exiting");
         return -1;
     }
@@ -207,5 +235,6 @@ int main(int argc, char **argv)
     /* Close BSA Connection before exiting (to release resources) */
     app_mgt_close();
 
+    APP_DEBUG0("exit app ble wifi introducer");
     exit(0);
 }

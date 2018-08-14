@@ -28,56 +28,18 @@
 #include "app_mgt.h"
 #include "app_disc.h"
 #include "app_utils.h"
+#include "app_dm.h"
+#include "app_manager.h"
 #include "app_socket.h"
 
+#ifdef DUEROS
+extern tAPP_MGR_CB app_mgr_cb;
+static int dueros_socket_fd = -1;
+char sock_path[]="/data/bsa/config/socket_dueros";
+#else
 tAPP_SOCKET app_socket;
 char sock_path[]="/data/bsa/config/socket_avk";
-
-
-/* Menu items */
-enum
-{
-    APP_AVK_MENU_DISCOVERY = 1,
-    APP_AVK_MENU_REGISTER,
-    APP_AVK_MENU_DEREGISTER,
-    APP_AVK_MENU_OPEN,
-    APP_AVK_MENU_CLOSE,
-    APP_AVK_MENU_PLAY_START,
-    APP_AVK_MENU_PLAY_STOP,
-    APP_AVK_MENU_PLAY_PAUSE,
-    APP_AVK_MENU_PLAY_NEXT_TRACK,
-    APP_AVK_MENU_PLAY_PREVIOUS_TRACK,
-    APP_AVK_MENU_RC_OPEN,
-    APP_AVK_MENU_RC_CLOSE,
-    APP_AVK_MENU_RC_CMD,
-    APP_AVK_MENU_GET_ELEMENT_ATTR,
-    APP_AVK_MENU_GET_CAPABILITIES,
-    APP_AVK_MENU_REGISTER_NOTIFICATION,
-    APP_AVK_MENU_REGISTER_NOTIFICATION_RESPONSE,
-    APP_AVK_MENU_SEND_DELAY_RPT,
-    APP_AVK_MENU_SEND_ABORT_REQ,
-    APP_AVK_MENU_GET_PLAY_STATUS,
-    APP_AVK_MENU_GET_ELEMENT_ATTRIBUTES,
-    APP_AVK_MENU_SET_BROWSED_PLAYER,
-    APP_AVK_MENU_SET_ADDRESSED_PLAYER,
-    APP_AVK_MENU_GET_FOLDER_ITEMS,
-    APP_AVK_MENU_CHANGE_PATH,
-    APP_AVK_MENU_GET_ITEM_ATTRIBUTES,
-    APP_AVK_MENU_PLAY_ITEM,
-    APP_AVK_MENU_ADD_TO_NOW_PLAYING,
-    APP_AVK_MENU_LIST_PLAYER_APP_SET_ATTR,
-    APP_AVK_MENU_LIST_PLAYER_APP_SET_VALUE,
-    APP_AVK_MENU_SET_ABSOLUTE_VOLUME,
-    APP_AVK_MENU_SELECT_STREAMING_DEVICE,
-#if (defined(AVRC_COVER_ART_INCLUDED) && AVRC_COVER_ART_INCLUDED == TRUE)
-    APP_AVK_MENU_GET_COVER_ART_PROPERTY,
-    APP_AVK_MENU_GET_COVER_ART_THUMBNAIL,
-    APP_AVK_MENU_GET_COVER_ART_IMAGE,
-    APP_AVK_MENU_COVERT_ART_ABORT,
 #endif
-    APP_AVK_MENU_QUIT = 99
-};
-
 
 /*******************************************************************************
  **
@@ -187,6 +149,81 @@ static BOOLEAN app_avk_mgt_callback(tBSA_MGT_EVT event, tBSA_MGT_MSG *p_data)
  ** Returns          void
  **
  *******************************************************************************/
+#ifdef DUEROS
+int main(int argc, char **argv)
+{
+    int choice, bytes, mode;
+    char msg[64];
+
+    /* Open connection to BSA Server */
+    app_mgt_init();
+    if (app_mgt_open(NULL, app_avk_mgt_callback) < 0) {
+        APP_ERROR0("Unable to connect to server");
+        return -1;
+    }
+
+    /* Init XML state machine */
+    app_xml_init();
+
+    if (app_mgr_config()) {
+        APP_ERROR0("Couldn't configure successfully, exiting");
+        return -1;
+    }
+
+    /* Display FW versions */
+    app_mgr_read_version();
+
+    /* Get the current Stack mode */
+    mode = app_dm_get_dual_stack_mode();
+    if (mode < 0) {
+        APP_ERROR0("app_dm_get_dual_stack_mode failed");
+        return -1;
+    } else {
+        /* Save the current DualStack mode */
+        app_mgr_cb.dual_stack_mode = mode;
+        APP_INFO1("Current DualStack mode:%s", app_mgr_get_dual_stack_mode_desc());
+    }
+
+    app_avk_init(NULL);
+
+    dueros_socket_fd = setup_socket_client(sock_path);
+    if (dueros_socket_fd < 0) {
+        APP_ERROR0("Fail to connect server socket\n");
+        return 0;
+    }
+
+    APP_DEBUG0("Service connected\n");
+
+    do {
+        memset(msg, 0, sizeof(msg));
+        bytes = socket_recieve(dueros_socket_fd, msg, sizeof(msg));
+        if (bytes == 0 ) {
+            APP_DEBUG0("server leaved, break\n");
+            break;
+        }
+
+        choice = atoi(msg);
+        APP_DEBUG1("msg = %s, choice :%d\n", msg, choice);
+
+        if (choice == APP_AVK_MENU_REGISTER)
+            app_avk_register();
+        else
+            app_avk_rc_send_cmd(choice);
+    } while(choice != APP_AVK_MENU_QUIT);
+
+    /* Terminate the profile */
+    app_avk_end();
+
+    /* Close BSA before exiting (to release resources) */
+    app_mgt_close();
+
+    teardown_socket_client(dueros_socket_fd);
+
+    APP_DEBUG0("exit app avk");
+    return 0;
+}
+
+#else
 int main(int argc, char **argv)
 {
     int choice, avrcp_evt, bytes, i;
@@ -198,11 +235,9 @@ int main(int argc, char **argv)
     char msg[64];
     int use_socket = 0;
 
-    for (i = 1; i < argc; i++)
-    {
+    for (i = 1; i < argc; i++) {
         char *arg = argv[i];
-        if (*arg != '-')
-        {
+        if (*arg != '-') {
             APP_ERROR1("Unsupported parameter #%d : %s", i+1, argv[i]);
             exit(-1);
         }
@@ -210,8 +245,7 @@ int main(int argc, char **argv)
         arg++;
         /* check if the second char is also a '-'char */
         if (*arg == '-') arg++;
-        switch (*arg)
-        {
+        switch (*arg) {
             case 's':
                 use_socket = 1;
                 break;
@@ -222,8 +256,7 @@ int main(int argc, char **argv)
 
     /* Open connection to BSA Server */
     app_mgt_init();
-    if (app_mgt_open(NULL, app_avk_mgt_callback) < 0)
-    {
+    if (app_mgt_open(NULL, app_avk_mgt_callback) < 0) {
         APP_ERROR0("Unable to connect to server");
         return -1;
     }
@@ -241,8 +274,8 @@ int main(int argc, char **argv)
             return 0;
         printf("client connted\n");
     }
-    do
-    {
+
+    do {
         app_avk_display_main_menu();
 
         if (use_socket == 0) {
@@ -250,7 +283,7 @@ int main(int argc, char **argv)
         } else {
             memset(msg,0,sizeof(msg));
             bytes = socket_recieve(app_socket.client_sockfd, msg, sizeof(msg));
-            if (bytes == 0 ) {
+            if (bytes == 0) {
                 printf("client leaved, waiting for reconnect\n");
                 if (accpet_client(&app_socket) < 0)
                     return 0;
@@ -261,9 +294,7 @@ int main(int argc, char **argv)
             printf("msg = %s, choice :%d\n",msg, choice);
         }
 
-        switch (choice)
-        {
-
+        switch (choice) {
         case APP_AVK_MENU_DISCOVERY:
             /* Example to perform Device discovery (in blocking mode) */
             app_disc_start_regular(NULL);
@@ -289,7 +320,7 @@ int main(int argc, char **argv)
             connection_index = app_get_choice("\n");
             connection = app_avk_find_connection_by_index(connection_index);
             if(connection)
-            app_avk_close(connection->bda_connected);
+                app_avk_close(connection->bda_connected);
             else
                 printf("Unknown choice:%d\n", connection_index);
             break;
@@ -301,7 +332,7 @@ int main(int argc, char **argv)
             connection_index = app_get_choice("\n");
             connection = app_avk_find_connection_by_index(connection_index);
             if(connection)
-            app_avk_play_start(connection->rc_handle);
+                app_avk_play_start(connection->rc_handle);
             else
                 printf("Unknown choice:%d\n", connection_index);
             break;
@@ -313,10 +344,10 @@ int main(int argc, char **argv)
             connection_index = app_get_choice("\n");
             connection = app_avk_find_connection_by_index(connection_index);
             if(connection)
-            app_avk_play_stop(connection->rc_handle);
+                app_avk_play_stop(connection->rc_handle);
             else
                 printf("Unknown choice:%d\n", connection_index);
-            break;  
+            break;
 
         case APP_AVK_MENU_PLAY_PAUSE:
             /* Example to pause stream play */
@@ -325,7 +356,33 @@ int main(int argc, char **argv)
             connection_index = app_get_choice("\n");
             connection = app_avk_find_connection_by_index(connection_index);
             if(connection)
-            app_avk_play_pause(connection->rc_handle);
+                app_avk_play_pause(connection->rc_handle);
+            else
+                printf("Unknown choice:%d\n", connection_index);
+            break;
+
+        case APP_AVK_MENU_VOLUME_UP:
+            /* Example to volume up */
+            printf("tiantian, volume up\n");
+            printf("Choose connection index\n");
+            app_avk_display_connections();
+            connection_index = app_get_choice("\n");
+            connection = app_avk_find_connection_by_index(connection_index);
+            if(connection)
+                app_avk_volume_up(connection->rc_handle);
+            else
+                printf("Unknown choice:%d\n", connection_index);
+            break;
+
+        case APP_AVK_MENU_VOLUME_DOWN:
+            /* Example to volume down */
+            printf("tiantian, volume down\n");
+            printf("Choose connection index\n");
+            app_avk_display_connections();
+            connection_index = app_get_choice("\n");
+            connection = app_avk_find_connection_by_index(connection_index);
+            if(connection)
+                app_avk_volume_down(connection->rc_handle);
             else
                 printf("Unknown choice:%d\n", connection_index);
             break;
@@ -337,7 +394,7 @@ int main(int argc, char **argv)
             connection_index = app_get_choice("\n");
             connection = app_avk_find_connection_by_index(connection_index);
             if(connection)
-             app_avk_play_next_track(connection->rc_handle);
+                app_avk_play_next_track(connection->rc_handle);
             else
                 printf("Unknown choice:%d\n", connection_index);
             break;
@@ -349,10 +406,10 @@ int main(int argc, char **argv)
             connection_index = app_get_choice("\n");
             connection = app_avk_find_connection_by_index(connection_index);
             if(connection)
-            app_avk_play_previous_track(connection->rc_handle);
+                app_avk_play_previous_track(connection->rc_handle);
             else
                 printf("Unknown choice:%d\n", connection_index);
-            break;  
+            break;
 
         case APP_AVK_MENU_RC_OPEN:
             /* Example to Open RC connection (connect device)*/
@@ -385,10 +442,10 @@ int main(int argc, char **argv)
             connection_index = app_get_choice("\n");
             connection = app_avk_find_connection_by_index(connection_index);
             if(connection)
-            app_avk_rc_cmd(connection->rc_handle);
+                app_avk_rc_cmd(connection->rc_handle);
             else
                 printf("Unknown choice:%d\n", connection_index);
-            break;          
+            break;
 
         case APP_AVK_MENU_GET_ELEMENT_ATTR:
             /* Example to send Vendor Dependent command */
@@ -397,7 +454,7 @@ int main(int argc, char **argv)
             connection_index = app_get_choice("\n");
             connection = app_avk_find_connection_by_index(connection_index);
             if(connection)
-            app_avk_send_get_element_attributes_cmd(connection->rc_handle);
+                app_avk_send_get_element_attributes_cmd(connection->rc_handle);
             else
                 printf("Unknown choice:%d\n", connection_index);
             break;
@@ -409,7 +466,7 @@ int main(int argc, char **argv)
             connection_index = app_get_choice("\n");
             connection = app_avk_find_connection_by_index(connection_index);
             if(connection)
-            app_avk_send_get_capabilities(connection->rc_handle);
+                app_avk_send_get_capabilities(connection->rc_handle);
             else
                 printf("Unknown choice:%d\n", connection_index);
             break;
@@ -754,12 +811,12 @@ int main(int argc, char **argv)
     /* Terminate the profile */
     app_avk_end();
 
-
     /* Close BSA before exiting (to release resources) */
     app_mgt_close();
 
     if (use_socket == 1)
-            teardown_socket_server(&app_socket);
+        teardown_socket_server(&app_socket);
 
     return 0;
 }
+#endif

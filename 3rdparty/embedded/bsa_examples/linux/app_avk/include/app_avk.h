@@ -26,6 +26,52 @@
 #define BSA_MIN_ABS_VOLUME        0x00   /* Min and max absolute vol */
 #define BSA_MAX_ABS_VOLUME        0x7F
 
+/* Menu items */
+enum
+{
+    APP_AVK_MENU_DISCOVERY = 1,
+    APP_AVK_MENU_REGISTER,
+    APP_AVK_MENU_DEREGISTER,
+    APP_AVK_MENU_OPEN,
+    APP_AVK_MENU_CLOSE, //5
+    APP_AVK_MENU_PLAY_START,
+    APP_AVK_MENU_PLAY_STOP,
+    APP_AVK_MENU_PLAY_PAUSE,
+    APP_AVK_MENU_VOLUME_UP,
+    APP_AVK_MENU_VOLUME_DOWN, //10
+    APP_AVK_MENU_PLAY_NEXT_TRACK,
+    APP_AVK_MENU_PLAY_PREVIOUS_TRACK,
+    APP_AVK_MENU_RC_OPEN,
+    APP_AVK_MENU_RC_CLOSE,
+    APP_AVK_MENU_RC_CMD,
+    APP_AVK_MENU_GET_ELEMENT_ATTR,
+    APP_AVK_MENU_GET_CAPABILITIES,
+    APP_AVK_MENU_REGISTER_NOTIFICATION,
+    APP_AVK_MENU_REGISTER_NOTIFICATION_RESPONSE,
+    APP_AVK_MENU_SEND_DELAY_RPT,
+    APP_AVK_MENU_SEND_ABORT_REQ,
+    APP_AVK_MENU_GET_PLAY_STATUS,
+    APP_AVK_MENU_GET_ELEMENT_ATTRIBUTES,
+    APP_AVK_MENU_SET_BROWSED_PLAYER,
+    APP_AVK_MENU_SET_ADDRESSED_PLAYER,
+    APP_AVK_MENU_GET_FOLDER_ITEMS,
+    APP_AVK_MENU_CHANGE_PATH,
+    APP_AVK_MENU_GET_ITEM_ATTRIBUTES,
+    APP_AVK_MENU_PLAY_ITEM,
+    APP_AVK_MENU_ADD_TO_NOW_PLAYING,
+    APP_AVK_MENU_LIST_PLAYER_APP_SET_ATTR,
+    APP_AVK_MENU_LIST_PLAYER_APP_SET_VALUE,
+    APP_AVK_MENU_SET_ABSOLUTE_VOLUME,
+    APP_AVK_MENU_SELECT_STREAMING_DEVICE,
+#if (defined(AVRC_COVER_ART_INCLUDED) && AVRC_COVER_ART_INCLUDED == TRUE)
+    APP_AVK_MENU_GET_COVER_ART_PROPERTY,
+    APP_AVK_MENU_GET_COVER_ART_THUMBNAIL,
+    APP_AVK_MENU_GET_COVER_ART_IMAGE,
+    APP_AVK_MENU_COVERT_ART_ABORT,
+#endif
+    APP_AVK_MENU_QUIT = 99
+};
+
 /*
  * Types
  */
@@ -206,6 +252,39 @@ void app_avk_close_str(UINT8 ccb_handle);
 **
 *******************************************************************************/
 void app_avk_cancel(BD_ADDR bda);
+
+/*******************************************************************************
+ **
+ ** Function         void app_avk_rc_send_cmd
+ **
+ ** Description      Example of send avrcp commands
+ **
+ ** Returns          void
+ **
+ *******************************************************************************/
+void app_avk_rc_send_cmd(UINT8 command);
+
+/*******************************************************************************
+**
+** Function         app_avk_volume_up
+**
+** Description      Example of volume up
+**
+** Returns          void
+**
+*******************************************************************************/
+void app_avk_volume_up(UINT8 rc_handle);
+
+/*******************************************************************************
+**
+** Function         app_avk_volume_up
+**
+** Description      Example of volume down
+**
+** Returns          void
+**
+*******************************************************************************/
+void app_avk_volume_down(UINT8 rc_handle);
 
 /*******************************************************************************
 **

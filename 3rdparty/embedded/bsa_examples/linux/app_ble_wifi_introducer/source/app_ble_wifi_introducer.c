@@ -94,6 +94,7 @@ static UINT8 dueros_wifi_introducer_descriptor_uuid[LEN_UUID_128] =
 static UINT8 dueros_characteristic_value[APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE] =
                         DUEROS_CHARACTERISTIC_VALUE;
 
+extern int ble_wifi_config;
 static pthread_t dueros_tid = 0;
 static int dueros_socket_done = 0;
 static int dueros_socket_fd = -1;
@@ -1533,6 +1534,8 @@ static void dueros_socket_thread_delete(void) {
         pthread_join(dueros_tid, NULL);
         dueros_tid = 0;
     }
+
+    ble_wifi_config = 0;
 }
 
 static void dueros_wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
@@ -1627,4 +1630,3 @@ static int dueros_wifi_introducer_create_gatt_database(void)
     return 0;
 }
 #endif
-
