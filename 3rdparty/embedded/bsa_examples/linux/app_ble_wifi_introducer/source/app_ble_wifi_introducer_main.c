@@ -78,7 +78,7 @@ static void app_ble_wifi_introducer_display_menu (void)
  *******************************************************************************/
 void app_ble_wifi_introducer_menu(void)
 {
-#ifdef DUEROS
+#if 1
     while(ble_wifi_config) {
         sleep(1);
     }

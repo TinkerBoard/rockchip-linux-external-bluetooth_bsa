@@ -825,6 +825,7 @@ static void app_ble_wifi_introducer_profile_cback(tBSA_BLE_EVT event,
 #ifdef DUEROS
         dueros_socket_thread_delete();
 #endif
+        ble_wifi_config = 0;
 
         app_ble_wifi_introducer_cb.conn_id = BSA_BLE_INVALID_CONN;
 
@@ -1067,7 +1068,7 @@ static BOOLEAN start_wpa_supplicant(void)
 
     fclose(fp);
 
-    if (-1 == system("killall wpa_supplicant; dhcpcd -k wlan0; killall dhcpcd;"
+    if (-1 == system("killall wpa_supplicant;killall dhcpcd;"
                    "ifconfig wlan0 0.0.0.0")) {
         APP_ERROR0("killall wpa_supplicant dhcpcd failed");
         return FALSE;
@@ -1079,7 +1080,7 @@ static BOOLEAN start_wpa_supplicant(void)
         return FALSE;
     }
 
-    if (-1 == system("dhcpcd wlan0 -t 0 &")) {
+    if (-1 == system("sleep 1;dhcpcd wlan0 -t 0 &")) {
         APP_ERROR0("dhcpcd failed");
         return FALSE;
     }
@@ -1504,8 +1505,6 @@ static void dueros_socket_thread_delete(void) {
         pthread_join(dueros_tid, NULL);
         dueros_tid = 0;
     }
-
-    ble_wifi_config = 0;
 }
 
 static void dueros_wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
