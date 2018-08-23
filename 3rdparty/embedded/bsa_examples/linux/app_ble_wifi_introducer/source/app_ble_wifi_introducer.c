@@ -78,12 +78,9 @@ static BOOLEAN wifi_introducer_ssid_password   = FALSE;
 
 #ifdef DUEROS
 /* DuerOS wifi introducer info */
-static UINT8 dueros_wifi_introducer_service_uuid[LEN_UUID_128] =
-        {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x11, 0x11, 0x00, 0x00};
-static UINT8 dueros_wifi_introducer_characteristic_uuid[LEN_UUID_128] =
-        {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x22, 0x22, 0x00, 0x00};
-static UINT8 dueros_wifi_introducer_descriptor_uuid[LEN_UUID_128] =
-        {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x02, 0x29, 0x00, 0x00};
+#define DUEROS_WIFI_CONFIG_SERVICE_UUID         0x1111
+#define DUEROS_WIFI_CONFIG_CHARACTERISTIC_UUID  0x2222
+#define DUEROS_WIFI_CONFIG_DESCRIPTOR_UUID      0x2902
 
 /* Must be the same as the maximum length of data sent by ble_send_data_cb,
  * otherwise the data will be transmitted to the dueros app will be wrong,
@@ -196,7 +193,6 @@ static void app_ble_wifi_introducer_set_advertisement_data(void)
 {
     tBSA_DM_BLE_AD_MASK data_mask;
     tBSA_DM_SET_CONFIG bt_config;
-    tBSA_DM_SET_CONFIG bt_scan_rsp;
     tBSA_STATUS bsa_status;
     UINT8 len = 0;
 
@@ -208,59 +204,33 @@ static void app_ble_wifi_introducer_set_advertisement_data(void)
 
     /* Configure the Advertisement Data parameters */
     bt_config.config_mask = BSA_DM_CONFIG_BLE_ADV_CONFIG_MASK;
-
-    /* Use services flag to show above services if required on the peer device */
-    data_mask = BSA_DM_BLE_AD_BIT_FLAGS | BSA_DM_BLE_AD_BIT_SERVICE_128;
-
+    data_mask = BSA_DM_BLE_AD_BIT_FLAGS | BSA_DM_BLE_AD_BIT_PROPRIETARY |
+                         BSA_DM_BLE_AD_BIT_SERVICE;
     bt_config.adv_config.flag = BSA_DM_BLE_GEN_DISC_FLAG | BSA_DM_BLE_BREDR_NOT_SPT;
     bt_config.adv_config.adv_data_mask = data_mask;
     bt_config.adv_config.is_scan_rsp = FALSE;
 
 #ifdef DUEROS
-    memcpy(bt_config.adv_config.services_128b.uuid128,
-                   dueros_wifi_introducer_service_uuid, LEN_UUID_128);
+    bt_config.adv_config.num_service = 1;
+    bt_config.adv_config.uuid_val[0] = DUEROS_WIFI_CONFIG_SERVICE_UUID;
+    len += bt_config.adv_config.num_service * sizeof(UINT16);
 #else
     memcpy(bt_config.adv_config.services_128b.uuid128,
                    wifi_introducer_service_uuid, LEN_UUID_128);
-#endif
-
     bt_config.adv_config.services_128b.list_cmpl = TRUE;
     len += LEN_UUID_128;
+#endif
+
+    bt_config.adv_config.proprietary.num_elem = 1;
+    bt_config.adv_config.proprietary.elem[0].adv_type = BTM_BLE_ADVERT_TYPE_NAME_COMPLETE;
+    len += 2;
+
+    bt_config.adv_config.proprietary.elem[0].len = strlen((char *)wifi_introducer_device_name);
+    strcpy((char *)bt_config.adv_config.proprietary.elem[0].val, (char *)wifi_introducer_device_name);
+    len += bt_config.adv_config.proprietary.elem[0].len;
+    bt_config.adv_config.len = len;
 
     bsa_status = BSA_DmSetConfig(&bt_config);
-    if (bsa_status != BSA_SUCCESS)
-    {
-        APP_ERROR1("BSA_DmSetConfig failed status:%d ", bsa_status);
-        return;
-    }
-
-    /*set scan response*/
-
-    /* Set Bluetooth configuration */
-    BSA_DmSetConfigInit(&bt_scan_rsp);
-
-    /* Obviously */
-    bt_scan_rsp.enable = TRUE;
-
-    /* Configure the Advertisement Data parameters */
-    bt_scan_rsp.config_mask = BSA_DM_CONFIG_BLE_ADV_CONFIG_MASK;
-
-    /* Use services flag to show above services if required on the peer device */
-    data_mask = BSA_DM_BLE_AD_BIT_FLAGS | BSA_DM_BLE_AD_BIT_PROPRIETARY;
-
-    bt_scan_rsp.adv_config.flag = BSA_DM_BLE_GEN_DISC_FLAG | BSA_DM_BLE_BREDR_NOT_SPT;
-    bt_scan_rsp.adv_config.adv_data_mask = data_mask;
-    bt_scan_rsp.adv_config.is_scan_rsp = TRUE;
-
-    bt_scan_rsp.adv_config.proprietary.num_elem = 1;
-    bt_scan_rsp.adv_config.proprietary.elem[0].adv_type = BTM_BLE_ADVERT_TYPE_NAME_COMPLETE;
-    len = 0;
-    bt_scan_rsp.adv_config.proprietary.elem[0].len = strlen((char *)wifi_introducer_device_name);
-    strcpy((char *)bt_scan_rsp.adv_config.proprietary.elem[0].val, (char *)wifi_introducer_device_name);
-    len += bt_scan_rsp.adv_config.proprietary.elem[0].len;
-    bt_scan_rsp.adv_config.len = len;
-
-    bsa_status = BSA_DmSetConfig(&bt_scan_rsp);
     if (bsa_status != BSA_SUCCESS)
     {
         APP_ERROR1("BSA_DmSetConfig failed status:%d ", bsa_status);
@@ -1589,8 +1559,8 @@ static int dueros_wifi_introducer_create_gatt_database(void)
 
     APP_INFO0("dueros_wifi_introducer_create_gatt_database");
 
-    service_uuid.len = LEN_UUID_128;
-    memcpy(service_uuid.uu.uuid128, dueros_wifi_introducer_service_uuid, MAX_UUID_SIZE);
+    service_uuid.len = LEN_UUID_16;
+    service_uuid.uu.uuid16 = DUEROS_WIFI_CONFIG_SERVICE_UUID;
     srvc_attr_index = app_ble_wifi_introducer_create_service(&service_uuid, 20);
     if (srvc_attr_index < 0)
     {
@@ -1599,8 +1569,8 @@ static int dueros_wifi_introducer_create_gatt_database(void)
     }
 
     memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
-    attr.attr_UUID.len = LEN_UUID_128;
-    memcpy(&attr.attr_UUID.uu.uuid128, dueros_wifi_introducer_characteristic_uuid, MAX_UUID_SIZE);
+    attr.attr_UUID.len = LEN_UUID_16;
+    attr.attr_UUID.uu.uuid16 = DUEROS_WIFI_CONFIG_CHARACTERISTIC_UUID;
     attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
     attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_WRITE; //17
     attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_WRITE |
@@ -1617,8 +1587,8 @@ static int dueros_wifi_introducer_create_gatt_database(void)
     attr_index_notify = app_ble_wifi_introducer_add_char(&attr);
 
     memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
-    attr.attr_UUID.len = LEN_UUID_128;
-    memcpy(&attr.attr_UUID.uu.uuid128, dueros_wifi_introducer_descriptor_uuid, MAX_UUID_SIZE);
+    attr.attr_UUID.len = LEN_UUID_16;
+    attr.attr_UUID.uu.uuid16 = DUEROS_WIFI_CONFIG_DESCRIPTOR_UUID;
     attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
     attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_WRITE; //17
     attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR_DESCR;
