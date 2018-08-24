@@ -37,6 +37,7 @@
 /*
  * Local Variables
  */
+extern int ble_wifi_config;
 static tAPP_THREAD  join_thread;
 static tAPP_MUTEX join_mutex;
 static BOOLEAN wifi_join_return_value = TRUE; // This is for simulate Wifi Join Function
@@ -91,7 +92,6 @@ static BOOLEAN wifi_introducer_ssid_password   = FALSE;
 static UINT8 dueros_characteristic_value[APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE] =
                         DUEROS_CHARACTERISTIC_VALUE;
 
-extern int ble_wifi_config;
 static pthread_t dueros_tid = 0;
 static int dueros_socket_done = 0;
 static int dueros_socket_fd = -1;
