@@ -41,6 +41,8 @@ tAPP_SOCKET app_socket;
 char sock_path[]="/data/bsa/config/socket_avk";
 #endif
 
+int app_avk_wait_close = 0;
+
 /*******************************************************************************
  **
  ** Function         app_avk_display_main_menu
@@ -137,6 +139,54 @@ static BOOLEAN app_avk_mgt_callback(tBSA_MGT_EVT event, tBSA_MGT_MSG *p_data)
     return FALSE;
 }
 
+static void app_avk_cmd_send_callback(int msg, int status) {
+    int cmd = -1;
+
+    APP_DEBUG1("app_avk_cmd_send_callback, msg: %d, status: %d\n", msg, status);
+    switch (msg) {
+        case BSA_SEC_LINK_UP_EVT:
+            cmd = APP_AVK_BT_CONNECT;
+            break;
+
+        case BSA_SEC_LINK_DOWN_EVT:
+            if(app_avk_wait_close) {
+                cmd = APP_AVK_BT_DISCONNECT;
+                app_avk_wait_close = 0;
+            }
+            break;
+
+        case BSA_SEC_SP_CFM_REQ_EVT:
+            cmd = APP_AVK_BT_WAIT_PAIR;
+            break;
+
+        case BSA_SEC_AUTH_CMPL_EVT:
+            if(status)
+                cmd = APP_AVK_BT_PAIR_SUCCESS;
+            else
+                cmd = APP_AVK_BT_PAIR_FAILED_OTHER;
+            break;
+    }
+
+    if(cmd >= 0) {
+        if (app_avk_socket_send(cmd) < 0)
+            APP_DEBUG1("avk socket send failed, cmd: %d\n", cmd);
+    }
+}
+
+int app_avk_socket_send(int cmd) {
+    int ret = -1;
+
+#ifdef DUEROS
+    char msg[10];
+    memset(msg, 0, 10);
+    sprintf(msg, "%d", cmd);
+
+    APP_DEBUG1("msg: %s, len: %d\n", msg, strlen(msg));
+    ret = socket_send(dueros_socket_fd, msg, strlen(msg));
+#endif
+
+    return ret;
+}
 
 /*******************************************************************************
  **
@@ -165,7 +215,7 @@ int main(int argc, char **argv)
     /* Init XML state machine */
     app_xml_init();
 
-    if (app_mgr_config()) {
+    if (app_mgr_config(app_avk_cmd_send_callback)) {
         APP_ERROR0("Couldn't configure successfully, exiting");
         return -1;
     }

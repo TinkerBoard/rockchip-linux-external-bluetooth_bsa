@@ -87,11 +87,18 @@ tAPP_MGR_CB app_mgr_cb;
 tBSA_SEC_SET_REMOTE_OOB bsa_sec_set_remote_oob;
 
 tBSA_SEC_PASSKEY_REPLY g_passkey_reply;
+
+cmd_send_callback cmd_send_cb = NULL;
+
 /*
  * Local functions
  */
-int app_mgr_config(void);
 char *app_mgr_get_dual_stack_mode_desc(void);
+
+static void app_mgr_send_cmd(int cmd, int status) {
+    if(cmd_send_cb)
+        cmd_send_cb(cmd, status);
+}
 
 /*******************************************************************************
  **
@@ -501,6 +508,7 @@ void app_mgr_security_callback(tBSA_SEC_EVT event, tBSA_SEC_MSG *p_data)
 #if (defined(BLE_INCLUDED) && BLE_INCLUDED == TRUE)
         APP_DEBUG1("LinkType: %d", p_data->link_down.link_type);
 #endif
+        app_mgr_send_cmd(BSA_SEC_LINK_DOWN_EVT, 0);
         break;
 
     case BSA_SEC_PIN_REQ_EVT:
@@ -528,6 +536,7 @@ void app_mgr_security_callback(tBSA_SEC_EVT event, tBSA_SEC_MSG *p_data)
         if (!p_data->auth_cmpl.success)
         {
             APP_DEBUG1("    fail_reason=%d", p_data->auth_cmpl.fail_reason);
+            app_mgr_send_cmd(BSA_SEC_AUTH_CMPL_EVT, 0);
         }
         APP_DEBUG1("    bd_addr:%02x:%02x:%02x:%02x:%02x:%02x",
                 p_data->auth_cmpl.bd_addr[0], p_data->auth_cmpl.bd_addr[1], p_data->auth_cmpl.bd_addr[2],
@@ -585,6 +594,7 @@ void app_mgr_security_callback(tBSA_SEC_EVT event, tBSA_SEC_MSG *p_data)
             /* Start device info discovery */
             app_disc_start_dev_info(p_data->auth_cmpl.bd_addr, NULL);
 #endif
+            app_mgr_send_cmd(BSA_SEC_AUTH_CMPL_EVT, 1);
         }
         break;
 
@@ -651,6 +661,7 @@ void app_mgr_security_callback(tBSA_SEC_EVT event, tBSA_SEC_MSG *p_data)
 
         APP_DEBUG0("\tSimple Pairing automatically Accepted");
         app_mgr_sp_cfm_reply(TRUE, p_data->cfm_req.bd_addr);
+        app_mgr_send_cmd(BSA_SEC_SP_CFM_REQ_EVT, 0);
         break;
 
     case BSA_SEC_SP_KEY_NOTIF_EVT: /* Simple Pairing Passkey Notification */
@@ -1445,12 +1456,12 @@ int app_get_cod(DEV_CLASS cod)
  **
  ** Description      Configure the BSA server
  **
- ** Parameters       None
+ ** Parameters       cmd_send_callback
  **
  ** Returns          Status of the operation
  **
  *******************************************************************************/
-int app_mgr_config(void)
+int app_mgr_config(cmd_send_callback cb)
 {
     int                 status;
     int                 index;
@@ -1635,6 +1646,8 @@ int app_mgr_config(void)
 
     /* Example of function to set the Local Bluetooth configuration */
     app_mgr_set_bt_config(app_xml_config.enable);
+
+    cmd_send_cb = cb;
 
     return 0;
 }

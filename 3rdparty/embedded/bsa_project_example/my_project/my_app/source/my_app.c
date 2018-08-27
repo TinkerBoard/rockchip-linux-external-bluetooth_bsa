@@ -198,7 +198,7 @@ int my_app_start(void)
 #endif
 
 #if 0
-    if (app_mgr_config() < 0)
+    if (app_mgr_config(NULL) < 0)
     {
         return -1;
     }

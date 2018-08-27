@@ -29,6 +29,7 @@
 /* Menu items */
 enum
 {
+    /* avk recieve */
     APP_AVK_MENU_DISCOVERY = 1,
     APP_AVK_MENU_REGISTER,
     APP_AVK_MENU_DEREGISTER,
@@ -69,7 +70,16 @@ enum
     APP_AVK_MENU_GET_COVER_ART_IMAGE,
     APP_AVK_MENU_COVERT_ART_ABORT,
 #endif
-    APP_AVK_MENU_QUIT = 99
+    APP_AVK_MENU_QUIT = 99,
+
+    /* avk send */
+    APP_AVK_BT_CONNECT,
+    APP_AVK_BT_DISCONNECT,
+    APP_AVK_BT_PLAY,
+    APP_AVK_BT_STOP,
+    APP_AVK_BT_WAIT_PAIR,
+    APP_AVK_BT_PAIR_SUCCESS,
+    APP_AVK_BT_PAIR_FAILED_OTHER,
 };
 
 /*
@@ -859,4 +869,14 @@ void app_avk_send_delay_report(BD_ADDR bd_addr, UINT16 delay);
  *******************************************************************************/
 void app_avk_send_abort_req(BD_ADDR bd_addr);
 
+/*******************************************************************************
+ **
+ ** Function         app_avk_socket_send
+ **
+ ** Description      Send the message through socket
+ **
+ ** Returns          int
+ **
+ *******************************************************************************/
+int app_avk_socket_send(int cmd);
 #endif /* APP_AVK_H_ */

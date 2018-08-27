@@ -433,6 +433,8 @@ static void app_avk_cback(tBSA_AVK_EVT event, tBSA_AVK_MSG *p_data)
             connection->ccb_handle = p_data->sig_chnl_open.ccb_handle;
             connection->is_open = TRUE;
             connection->is_streaming_chl_open = FALSE;
+
+            app_avk_socket_send(APP_AVK_BT_CONNECT);
         }
 
         app_avk_cb.open_pending = FALSE;
@@ -723,10 +725,12 @@ static void app_avk_cback(tBSA_AVK_EVT event, tBSA_AVK_MSG *p_data)
             {
                 case AVRC_PLAYSTATE_PLAYING:
                      APP_INFO0("Play Status Playing");
+                     app_avk_socket_send(APP_AVK_BT_PLAY);
                      break;
                 case AVRC_PLAYSTATE_STOPPED:
                 case AVRC_PLAYSTATE_PAUSED:
                      APP_INFO0("Play Status Stopped");
+                     app_avk_socket_send(APP_AVK_BT_STOP);
                      break;
                 default:
                      APP_INFO1("Play Status Playing : %02x",
@@ -1665,6 +1669,7 @@ void app_avk_rc_send_click(UINT8 command, UINT8 rc_handle)
  ** Returns          void
  **
  *******************************************************************************/
+extern int app_avk_wait_close;
 void app_avk_rc_send_cmd(UINT8 command)
 {
     int index;
@@ -1674,6 +1679,8 @@ void app_avk_rc_send_cmd(UINT8 command)
 
     if(num_conn == 0) {
         APP_INFO0("No connections");
+        if(command == APP_AVK_MENU_CLOSE)
+            app_avk_socket_send(APP_AVK_BT_DISCONNECT);
         return;
     }
 
@@ -1721,6 +1728,12 @@ void app_avk_rc_send_cmd(UINT8 command)
             case APP_AVK_MENU_PLAY_PREVIOUS_TRACK:
                 APP_INFO0("AVRCP PREVIOUS TRACK");
                 app_avk_play_previous_track(conn->rc_handle);
+                break;
+
+            case APP_AVK_MENU_CLOSE:
+                APP_INFO0("AVK CLOSE");
+                app_avk_wait_close = 1;
+                app_avk_close(conn->bda_connected);
                 break;
             }
         }

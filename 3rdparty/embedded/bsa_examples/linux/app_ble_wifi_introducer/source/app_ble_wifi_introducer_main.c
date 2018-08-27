@@ -196,7 +196,7 @@ int main(int argc, char **argv)
     /* Init XML state machine */
     app_xml_init();
 
-    if (app_mgr_config()) {
+    if (app_mgr_config(NULL)) {
         APP_ERROR0("Couldn't configure successfully, exiting");
         return -1;
     }

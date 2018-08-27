@@ -177,7 +177,7 @@ static BOOLEAN app_mgr_mgt_callback(tBSA_MGT_EVT event, tBSA_MGT_MSG *p_data)
         if (p_data->status.enable)
         {
             APP_DEBUG0("Bluetooth restarted => re-initialize the application");
-            app_mgr_config();
+            app_mgr_config(NULL);
         }
         break;
 
@@ -262,7 +262,7 @@ int main(int argc, char **argv)
         /* Init XML state machine */
         app_xml_init();
 
-        if (app_mgr_config())
+        if (app_mgr_config(NULL))
         {
             APP_ERROR0("Couldn't configure successfully, exiting");
             return -1;
@@ -609,7 +609,7 @@ int main(int argc, char **argv)
             /* Init XML state machine */
             app_xml_init();
 
-            if (app_mgr_config())
+            if (app_mgr_config(NULL))
             {
                 APP_ERROR0("app_mgr_config failed");
             }

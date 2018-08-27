@@ -16,6 +16,8 @@ typedef struct
     tBSA_DM_DUAL_STACK_MODE dual_stack_mode; /* Dual Stack Mode */
 } tAPP_MGR_CB;
 
+typedef void (* cmd_send_callback)(int, int);
+
 extern tAPP_XML_CONFIG         app_xml_config;
 extern BD_ADDR                 app_sec_db_addr;    /* BdAddr of peer device requesting SP */
 
@@ -297,12 +299,12 @@ char *app_mgr_get_dual_stack_mode_desc(void);
  **
  ** Description      Configure the BSA server
  **
- ** Parameters       None
+ ** Parameters       cmd_send_callback
  **
  ** Returns          Status of the operation
  **
  *******************************************************************************/
-int app_mgr_config(void);
+int app_mgr_config(cmd_send_callback);
 
 /*******************************************************************************
  **
