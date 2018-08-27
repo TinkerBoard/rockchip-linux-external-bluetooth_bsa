@@ -204,8 +204,16 @@ static void app_ble_wifi_introducer_set_advertisement_data(void)
 
     /* Configure the Advertisement Data parameters */
     bt_config.config_mask = BSA_DM_CONFIG_BLE_ADV_CONFIG_MASK;
+
+    /* Use services flag to show above services if required on the peer device */
+#ifdef DUEROS
     data_mask = BSA_DM_BLE_AD_BIT_FLAGS | BSA_DM_BLE_AD_BIT_PROPRIETARY |
                          BSA_DM_BLE_AD_BIT_SERVICE;
+#else
+    data_mask = BSA_DM_BLE_AD_BIT_FLAGS | BSA_DM_BLE_AD_BIT_PROPRIETARY |
+                         BSA_DM_BLE_AD_BIT_SERVICE_128;
+#endif
+
     bt_config.adv_config.flag = BSA_DM_BLE_GEN_DISC_FLAG | BSA_DM_BLE_BREDR_NOT_SPT;
     bt_config.adv_config.adv_data_mask = data_mask;
     bt_config.adv_config.is_scan_rsp = FALSE;
