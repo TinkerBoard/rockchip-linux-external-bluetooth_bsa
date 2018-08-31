@@ -102,6 +102,17 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif
 #endif /* PCM_ALSA */
 
+enum eAPP_AVK_PLAYSTATE {
+    SEND_PLAY = 1,
+    SEND_PAUSE,
+    SEND_STOP,
+    PLAYED,
+    STOPPED
+};
+
+static enum eAPP_AVK_PLAYSTATE play_state[APP_AVK_MAX_CONNECTIONS];
+static pthread_mutex_t ps_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 /*
  * Local functions
  */
@@ -721,16 +732,43 @@ static void app_avk_cback(tBSA_AVK_EVT event, tBSA_AVK_MSG *p_data)
 
         if (p_data->reg_notif_rsp.rsp.event_id == AVRC_EVT_PLAY_STATUS_CHANGE)
         {
+            BOOLEAN do_it = FALSE;
+            int index;
+            for (index = 0; index < APP_AVK_MAX_CONNECTIONS; index++) {
+                if (app_avk_cb.connections[index].rc_handle == p_data->reg_notif_rsp.handle)
+                    break;
+            }
+            if (index == APP_AVK_MAX_CONNECTIONS) {
+                APP_INFO0("BSA_AVK_REGISTER_NOTIFICATION_EVT handle can not find connection.");
+                break;
+            }
             switch(p_data->reg_notif_rsp.rsp.param.play_status)
             {
                 case AVRC_PLAYSTATE_PLAYING:
-                     APP_INFO0("Play Status Playing");
-                     app_avk_socket_send(APP_AVK_BT_PLAY);
+                    APP_INFO1("Play Status Playing, index: %d", index);
+                    pthread_mutex_lock(&ps_mutex);
+                    if (play_state[index] != PLAYED) {
+                        do_it = TRUE;
+                        play_state[index] = PLAYED;
+                    }
+                    pthread_mutex_unlock(&ps_mutex);
+                    if (do_it)
+                        app_avk_socket_send(APP_AVK_BT_PLAY);
                      break;
-                case AVRC_PLAYSTATE_STOPPED:
                 case AVRC_PLAYSTATE_PAUSED:
-                     APP_INFO0("Play Status Stopped");
-                     app_avk_socket_send(APP_AVK_BT_STOP);
+                case AVRC_PLAYSTATE_STOPPED:
+                    APP_INFO1("Play Status %s, index: %d",
+                              p_data->reg_notif_rsp.rsp.param.play_status ==
+                                AVRC_PLAYSTATE_PAUSED ? "Paused" : "Stopped",
+                              index);
+                    pthread_mutex_lock(&ps_mutex);
+                    if (play_state[index] != STOPPED) {
+                        do_it = TRUE;
+                        play_state[index] = STOPPED;
+                    }
+                    pthread_mutex_unlock(&ps_mutex);
+                    if (do_it)
+                        app_avk_socket_send(APP_AVK_BT_STOP);
                      break;
                 default:
                      APP_INFO1("Play Status Playing : %02x",
@@ -969,7 +1007,7 @@ static void app_avk_cback(tBSA_AVK_EVT event, tBSA_AVK_MSG *p_data)
 
 #if (defined(AVRC_COVER_ART_INCLUDED) && AVRC_COVER_ART_INCLUDED == TRUE)
     case BSA_AVK_CAC_ENABLE_EVT:
-        APP_DEBUG1("BSA_AVK_CAC_ENABLE_EVT status 0x%x", p_data->cac_enable_evt.status); 
+        APP_DEBUG1("BSA_AVK_CAC_ENABLE_EVT status 0x%x", p_data->cac_enable_evt.status);
         break;
 
     case BSA_AVK_CAC_OPEN_EVT:
@@ -1578,6 +1616,7 @@ int app_avk_init(tBSA_AVK_CBACK pcb)
 {
     tBSA_AVK_ENABLE bsa_avk_enable_param;
     tBSA_STATUS status;
+    int i = 0;
 
     /* Initialize the control structure */
     memset(&app_avk_cb, 0, sizeof(app_avk_cb));
@@ -1590,6 +1629,9 @@ int app_avk_init(tBSA_AVK_CBACK pcb)
 
     /* set sytem vol at 50% */
     app_avk_cb.volume = (UINT8)((BSA_MAX_ABS_VOLUME - BSA_MIN_ABS_VOLUME)>>1);
+
+    for(;i < APP_AVK_MAX_CONNECTIONS; i++)
+        play_state[i] = STOPPED;
 
     /* get hold on the AVK resource, synchronous mode */
     BSA_AvkEnableInit(&bsa_avk_enable_param);
@@ -1674,6 +1716,7 @@ void app_avk_rc_send_cmd(UINT8 command)
 {
     int index;
     tAPP_AVK_CONNECTION *conn = NULL;
+    BOOLEAN do_it = FALSE;
 
     int num_conn = app_avk_num_connections();
 
@@ -1697,17 +1740,38 @@ void app_avk_rc_send_cmd(UINT8 command)
             switch (command) {
             case APP_AVK_MENU_PLAY_START:
                 APP_INFO0("AVRCP PLAY");
-                app_avk_play_start(conn->rc_handle);
+                pthread_mutex_lock(&ps_mutex);
+                if (play_state[index] != PLAYED && play_state[index] != SEND_PLAY) {
+                    do_it = TRUE;
+                    play_state[index] = SEND_PLAY;
+                }
+                pthread_mutex_unlock(&ps_mutex);
+                if (do_it)
+                    app_avk_play_start(conn->rc_handle);
                 break;
 
             case APP_AVK_MENU_PLAY_STOP:
                 APP_INFO0("AVRCP STOP");
-                app_avk_play_stop(conn->rc_handle);
+                pthread_mutex_lock(&ps_mutex);
+                if (play_state[index] != STOPPED && play_state[index] != SEND_STOP) {
+                    do_it = TRUE;
+                    play_state[index] = SEND_STOP;
+                }
+                pthread_mutex_unlock(&ps_mutex);
+                if (do_it)
+                    app_avk_play_stop(conn->rc_handle);
                 break;
 
             case APP_AVK_MENU_PLAY_PAUSE:
                 APP_INFO0("AVRCP PAUSE");
-                app_avk_play_pause(conn->rc_handle);
+                pthread_mutex_lock(&ps_mutex);
+                if (play_state[index] != STOPPED && play_state[index] != SEND_PAUSE) {
+                    do_it = TRUE;
+                    play_state[index] = SEND_PAUSE;
+                }
+                pthread_mutex_unlock(&ps_mutex);
+                if (do_it)
+                    app_avk_play_pause(conn->rc_handle);
                 break;
 
             case APP_AVK_MENU_VOLUME_UP:
