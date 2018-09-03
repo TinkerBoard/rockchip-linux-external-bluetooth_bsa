@@ -88,10 +88,10 @@ int app_mgr_set_bt_config(BOOLEAN enable);
  **
  ** Parameters
  **
- ** Returns          void
+ ** Returns          char* bd_addr, int addr_len
  **
  *******************************************************************************/
-int app_mgr_get_bt_config(void);
+int app_mgr_get_bt_config(char* bd_addr, int addr_len);
 
 /*******************************************************************************
  **

@@ -406,7 +406,7 @@ int main(int argc, char **argv)
 
         case APP_MGR_MENU_READ_CONFIG:
             /* Read and print the device current configuration */
-            app_mgr_get_bt_config();
+            app_mgr_get_bt_config(NULL, 0);
             break;
 
         case APP_MGR_MENU_READ_LOCAL_OOB:

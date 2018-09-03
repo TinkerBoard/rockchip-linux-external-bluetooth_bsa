@@ -300,10 +300,10 @@ int app_mgr_set_bt_config(BOOLEAN enable)
  **
  ** Parameters
  **
- ** Returns          void
+ ** Returns          char* bd_addr, int addr_len
  **
  *******************************************************************************/
-int app_mgr_get_bt_config(void)
+int app_mgr_get_bt_config(char* bd_addr, int addr_len)
 {
     int status;
     tBSA_DM_GET_CONFIG bt_config;
@@ -330,6 +330,15 @@ int app_mgr_get_bt_config(void)
             bt_config.class_of_device[1], bt_config.class_of_device[2]);
     APP_DEBUG1("First host disabled channel:%d", bt_config.first_disabled_channel);
     APP_DEBUG1("Last host disabled channel:%d", bt_config.last_disabled_channel);
+
+    if(bd_addr != NULL) {
+        int i;
+        if(addr_len > BD_ADDR_LEN)
+            addr_len = BD_ADDR_LEN;
+
+        for(i = 0; i < addr_len; i++)
+            bd_addr[i] = bt_config.bd_addr[i];
+    }
 
     return 0;
 
@@ -1491,9 +1500,10 @@ int app_mgr_config(cmd_send_callback cb)
         app_xml_config.name[sizeof(app_xml_config.name) - 1] = '\0';
 
 #ifdef DUEROS
-        sprintf((char *)app_xml_config.name, "%s", "DuerOS_");
-        app_get_mac_address((char *)app_xml_config.name + sizeof("DuerOS_") - 1, 5, "wlan0",
-            (char *)app_xml_config.bd_addr, BD_ADDR_LEN);
+        app_mgr_get_bt_config((char *)app_xml_config.bd_addr, BD_ADDR_LEN);
+        sprintf((char *)app_xml_config.name, "%s%02X%02X", "DuerOS_",
+            app_xml_config.bd_addr[4], app_xml_config.bd_addr[5]);
+        APP_DEBUG1("device name: %s", app_xml_config.name);
 #else
         bdcpy(app_xml_config.bd_addr, local_bd_addr);
         /* let's use a random number for the last two bytes of the BdAddr */
@@ -1538,7 +1548,7 @@ int app_mgr_config(cmd_send_callback cb)
     }
 
      /* Example of function to get the Local Bluetooth configuration */
-    app_mgr_get_bt_config();
+    //app_mgr_get_bt_config(NULL, 0);
 
     /* Example of function to set the Bluetooth Security */
     status = app_mgr_sec_set_security();

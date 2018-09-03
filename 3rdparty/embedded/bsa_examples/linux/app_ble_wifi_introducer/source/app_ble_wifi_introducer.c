@@ -16,8 +16,10 @@
 #include "app_ble.h"
 #include "app_thread.h"
 #include "app_mutex.h"
+#include "app_xml_param.h"
 #include "app_utils.h"
 #include "app_dm.h"
+#include "app_manager.h"
 #include "app_socket.h"
 #include "app_ble_wifi_introducer.h"
 
@@ -1448,10 +1450,13 @@ int app_ble_wifi_introducer_create_wifi_join_thread(void)
  *******************************************************************************/
 #ifdef DUEROS
 static void dueros_set_device_name(void) {
+    BD_ADDR bd_addr;
+
     memset((char *)wifi_introducer_device_name, 0, BD_NAME_LEN + 1);
-    sprintf((char *)wifi_introducer_device_name, "%s", "DuerOS_");
-    app_get_mac_address((char *)wifi_introducer_device_name + sizeof("DuerOS_") - 1,
-        5, "wlan0", NULL, 0);
+    app_mgr_get_bt_config((char *)bd_addr, BD_ADDR_LEN);
+    sprintf((char *)wifi_introducer_device_name, "%s%02X%02X", "DuerOS_",
+        bd_addr[4], bd_addr[5]);
+
     APP_DEBUG1("Bt Device Name: %s", (char *)wifi_introducer_device_name);
 }
 
