@@ -445,6 +445,8 @@ static void app_avk_cback(tBSA_AVK_EVT event, tBSA_AVK_MSG *p_data)
             connection->is_open = TRUE;
             connection->is_streaming_chl_open = FALSE;
 
+            /* Set disvisisble and disconnectable */
+            app_dm_set_visibility(FALSE, FALSE);
             app_avk_socket_send(APP_AVK_BT_CONNECT);
         }
 
@@ -483,6 +485,9 @@ static void app_avk_cback(tBSA_AVK_EVT event, tBSA_AVK_MSG *p_data)
                 app_avk_close_wave_file(connection);
         }
         app_avk_reset_connection(connection->bda_connected);
+
+        /* Set visisble and connectable */
+        app_dm_set_visibility(TRUE, TRUE);
         break;
 
     case BSA_AVK_STR_OPEN_EVT:
