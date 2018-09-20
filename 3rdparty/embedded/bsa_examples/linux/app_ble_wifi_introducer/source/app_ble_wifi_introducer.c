@@ -52,47 +52,29 @@ static UINT8 wifi_introducer_device_name[ ] = "WiFiInt"; // This is for Adv only
 
 static UINT8 attr_index_notify;
 
-/* UUID value of Apollo config network info */
-static UINT8 wifi_introducer_service_uuid[LEN_UUID_128] =
-        {0x23, 0x20, 0x56, 0x7c, 0x05, 0xcf, 0x6e, 0xb4, 0xc3, 0x41, 0x77, 0x28, 0x51, 0x82, 0x7e, 0x1b};
-static UINT8 wifi_introducer_characteristic_nw_security_uuid[LEN_UUID_128] =
-        {0xa1, 0x93, 0xcd, 0xa5, 0x84, 0x0a, 0xaf, 0xbb, 0x4a, 0x4c, 0xbb, 0xed, 0xa4, 0xab, 0xc2, 0xca};
-static UINT8 wifi_introducer_characteristic_nw_ssid_uuid[LEN_UUID_128] =
-        {0x56, 0xb3, 0xf6, 0xce, 0xa6, 0x19, 0x08, 0x95, 0xad, 0x48, 0xaa, 0xee, 0x7c, 0xef, 0xa0, 0xac};
-static UINT8 wifi_introducer_characteristic_nw_passphrase_uuid[LEN_UUID_128] =
-        {0xce, 0xa6, 0x15, 0xb4, 0x33, 0xd8, 0x76, 0xa8, 0x8b, 0x4c, 0xe4, 0x93, 0x33, 0xde, 0xb7, 0x40};
-
-/* UUID value to  the Hello Sensor Characteristic, Value Notification */
-static UINT8 wifi_introducer_characteristic_notify_uuid[LEN_UUID_128] =
-        {0x26, 0xf6, 0x69, 0x91, 0x68, 0xee, 0xc2, 0xbe, 0x44, 0x4d, 0xb9, 0x5c, 0x3f, 0x2d, 0xc3, 0x8a};
+#define WIFI_CONFIG_SERVICE_UUID        0x1111
+#define WIFI_CONFIG_CHAR_SSID_UUID      0x2222
+#define WIFI_CONFIG_CHAR_PASSWORD_UUID  0x3333
+#define WIFI_CONFIG_CHAR_NOTIFY_UUID    0x4444
+#define WIFI_CONFIG_DESCRIPTOR_UUID     0x2902
 
 static UINT16 wifi_introducer_characteristic_notify_characteristic_client_configuration = 0;
-static UINT8 wifi_introducer_char_nw_security_value = 0 /*WICED_SECURITY_OPEN*/;
-static UINT8 wifi_introducer_char_nw_ssid_value[APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE] =
+static UINT8 wifi_introducer_char_ssid_value[APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE] =
                         CLIENT_AP_SSID;
-static UINT8 wifi_introducer_char_nw_passphrase_value[APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE]  =
+static UINT8 wifi_introducer_char_passphrase_value[APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE]  =
                         CLIENT_AP_PASSPHRASE;
 static UINT8 wifi_introducer_char_notify_value = 0; // 0 means not configured , 1 means configured
-static UINT8 wifi_introducer_char_battery_level_value = 0;
 
 static tAPP_BLE_WIFI_INTRODUCER_CB app_ble_wifi_introducer_cb;
-static BOOLEAN wifi_introducer_ssid_name         = FALSE;
-static BOOLEAN wifi_introducer_ssid_password   = FALSE;
+static BOOLEAN wifi_introducer_ssid_name = FALSE;
+static BOOLEAN wifi_introducer_ssid_password = FALSE;
 
 #ifdef DUEROS
-/* DuerOS wifi introducer info */
-#define DUEROS_WIFI_CONFIG_SERVICE_UUID         0x1111
-#define DUEROS_WIFI_CONFIG_CHARACTERISTIC_UUID  0x2222
-#define DUEROS_WIFI_CONFIG_DESCRIPTOR_UUID      0x2902
-
 /* Must be the same as the maximum length of data sent by ble_send_data_cb,
  * otherwise the data will be transmitted to the dueros app will be wrong,
  * the reason is unknown.
  */
 #define DUEROS_SOCKET_RECV_LEN 20
-#define DUEROS_CHARACTERISTIC_VALUE       "DUEROS_VALUE"
-static UINT8 dueros_characteristic_value[APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE] =
-                        DUEROS_CHARACTERISTIC_VALUE;
 
 static pthread_t dueros_tid = 0;
 static int dueros_socket_done = 0;
@@ -104,10 +86,9 @@ static int dueros_socket_send(char *msg, int len);
 static void *dueros_socket_recieve(void *arg);
 static int dueros_socket_thread_create(void);
 static void dueros_socket_thread_delete(void);
-static int dueros_wifi_introducer_create_gatt_database(void);
 static void dueros_wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
                   tBSA_BLE_MSG *p_data);
-static void dueros_wifi_introducer_ccc_callback(tBSA_BLE_EVT event, tBSA_BLE_MSG *p_data);
+static int dueros_wifi_introducer_create_gatt_database(void);
 #endif
 
 /*
@@ -131,17 +112,13 @@ static void app_ble_wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
 static void is_ssid_configured(void);
 static void app_ble_wifi_introducer_ccc_callback(tBSA_BLE_EVT event,
                     tBSA_BLE_MSG *p_data);
-static void app_ble_wifi_introducer_nw_security_callback(tBSA_BLE_EVT event,
-                    tBSA_BLE_MSG *p_data);
-static void app_ble_wifi_introducer_battery_level_callback(tBSA_BLE_EVT event,
-                    tBSA_BLE_MSG *p_data);
 static void app_ble_wifi_introducer_wifi_join_thread(void);
 static int app_ble_wifi_introducer_send_notification(void);
 
 /*
  * BLE common functions
  */
- 
+
 /*******************************************************************************
  **
  ** Function        app_ble_wifi_introducer_register
@@ -208,28 +185,16 @@ static void app_ble_wifi_introducer_set_advertisement_data(void)
     bt_config.config_mask = BSA_DM_CONFIG_BLE_ADV_CONFIG_MASK;
 
     /* Use services flag to show above services if required on the peer device */
-#ifdef DUEROS
     data_mask = BSA_DM_BLE_AD_BIT_FLAGS | BSA_DM_BLE_AD_BIT_PROPRIETARY |
                          BSA_DM_BLE_AD_BIT_SERVICE;
-#else
-    data_mask = BSA_DM_BLE_AD_BIT_FLAGS | BSA_DM_BLE_AD_BIT_PROPRIETARY |
-                         BSA_DM_BLE_AD_BIT_SERVICE_128;
-#endif
 
     bt_config.adv_config.flag = BSA_DM_BLE_GEN_DISC_FLAG | BSA_DM_BLE_BREDR_NOT_SPT;
     bt_config.adv_config.adv_data_mask = data_mask;
     bt_config.adv_config.is_scan_rsp = FALSE;
 
-#ifdef DUEROS
     bt_config.adv_config.num_service = 1;
-    bt_config.adv_config.uuid_val[0] = DUEROS_WIFI_CONFIG_SERVICE_UUID;
+    bt_config.adv_config.uuid_val[0] = WIFI_CONFIG_SERVICE_UUID;
     len += bt_config.adv_config.num_service * sizeof(UINT16);
-#else
-    memcpy(bt_config.adv_config.services_128b.uuid128,
-                   wifi_introducer_service_uuid, LEN_UUID_128);
-    bt_config.adv_config.services_128b.list_cmpl = TRUE;
-    len += LEN_UUID_128;
-#endif
 
     bt_config.adv_config.proprietary.num_elem = 1;
     bt_config.adv_config.proprietary.elem[0].adv_type = BTM_BLE_ADVERT_TYPE_NAME_COMPLETE;
@@ -269,21 +234,18 @@ static int app_ble_wifi_introducer_create_gatt_database(void)
 
     APP_INFO0("app_ble_wifi_introducer_create_gatt_database");
 
-    /* create a BLE service */
-    service_uuid.len = LEN_UUID_128;
-    memcpy(service_uuid.uu.uuid128, wifi_introducer_service_uuid, MAX_UUID_SIZE);
+    service_uuid.len = LEN_UUID_16;
+    service_uuid.uu.uuid16 = WIFI_CONFIG_SERVICE_UUID;
     srvc_attr_index = app_ble_wifi_introducer_create_service(&service_uuid, 20);
-    if (srvc_attr_index < 0)
-    {
-        APP_ERROR0("Service Create Fail");
+    if (srvc_attr_index < 0) {
+        APP_ERROR0("Wifi Config Service Create Fail");
         return -1;
     }
 
     /* Declare characteristic used to notify/indicate change */
     memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
-    attr.attr_UUID.len = LEN_UUID_128;
-    memcpy(&attr.attr_UUID.uu.uuid128, wifi_introducer_characteristic_notify_uuid,
-                     MAX_UUID_SIZE);
+    attr.attr_UUID.len = LEN_UUID_16;
+    attr.attr_UUID.uu.uuid16 = WIFI_CONFIG_CHAR_NOTIFY_UUID;
     attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
     attr.perm = BSA_GATT_PERM_READ;
     attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_NOTIFY |
@@ -300,123 +262,45 @@ static int app_ble_wifi_introducer_create_gatt_database(void)
        * when value of the characteristic changes.  Value 2 is to allow indications. */
     memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
     attr.attr_UUID.len = LEN_UUID_16;
-    attr.attr_UUID.uu.uuid16 = GATT_UUID_CHAR_CLIENT_CONFIG;
+    attr.attr_UUID.uu.uuid16 = WIFI_CONFIG_DESCRIPTOR_UUID;
     attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
-    attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_WRITE;
+    attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_WRITE; //17
     attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR_DESCR;
     attr.val_len = attr.max_val_len = sizeof(UINT16);
     attr.p_val = &wifi_introducer_characteristic_notify_characteristic_client_configuration;
     attr.p_cback = app_ble_wifi_introducer_ccc_callback;
     app_ble_wifi_introducer_add_char(&attr);
 
-    /* Declare characteristic for Security  */
     memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
-    attr.attr_UUID.len = LEN_UUID_128;
-    memcpy(&attr.attr_UUID.uu.uuid128, wifi_introducer_characteristic_nw_security_uuid, MAX_UUID_SIZE);
+    attr.attr_UUID.len = LEN_UUID_16;
+    attr.attr_UUID.uu.uuid16 = WIFI_CONFIG_CHAR_SSID_UUID;
     attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
-    attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_READ_ENCRYPTED |
-                       BSA_GATT_PERM_WRITE | BSA_GATT_PERM_WRITE_ENCRYPTED;
-    attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_WRITE;
-    attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR;
-    attr.val_len = attr.max_val_len = sizeof(UINT8);
-    attr.p_val = &wifi_introducer_char_nw_security_value;
-    attr.p_cback = app_ble_wifi_introducer_nw_security_callback;
-    app_ble_wifi_introducer_add_char(&attr);
-
-    /* Declare characteristic for SSID  */
-    memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
-    attr.attr_UUID.len = LEN_UUID_128;
-    memcpy(&attr.attr_UUID.uu.uuid128, wifi_introducer_characteristic_nw_ssid_uuid,
-                     MAX_UUID_SIZE);
-    attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
-    attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_READ_ENCRYPTED |
-                       BSA_GATT_PERM_WRITE | BSA_GATT_PERM_WRITE_ENCRYPTED;
-    attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_WRITE;
+    attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_WRITE; //17
+    attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_WRITE |
+                    BSA_GATT_CHAR_PROP_BIT_NOTIFY | BSA_GATT_CHAR_PROP_BIT_INDICATE |
+                    BSA_GATT_CHAR_PROP_BIT_WRITE_NR;
     attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR;
     attr.val_len = strlen(CLIENT_AP_SSID);
     attr.max_val_len = APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE - 1; // reserve one byte for end of string
-    attr.p_val = wifi_introducer_char_nw_ssid_value;
+    attr.p_val = wifi_introducer_char_ssid_value;
     attr.p_cback = app_ble_wifi_introducer_ssid_name_callback;
     app_ble_wifi_introducer_add_char(&attr);
 
-    /* Declare characteristic for Passphrase  */
     memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
-    attr.attr_UUID.len = LEN_UUID_128;
-    memcpy(&attr.attr_UUID.uu.uuid128, wifi_introducer_characteristic_nw_passphrase_uuid,
-                     MAX_UUID_SIZE);
+    attr.attr_UUID.len = LEN_UUID_16;
+    attr.attr_UUID.uu.uuid16 = WIFI_CONFIG_CHAR_PASSWORD_UUID;
     attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
-    attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_READ_ENCRYPTED |
-                       BSA_GATT_PERM_WRITE | BSA_GATT_PERM_WRITE_ENCRYPTED;
-    attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_WRITE;
+    attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_WRITE; //17
+    attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_WRITE |
+                    BSA_GATT_CHAR_PROP_BIT_NOTIFY | BSA_GATT_CHAR_PROP_BIT_INDICATE |
+                    BSA_GATT_CHAR_PROP_BIT_WRITE_NR;
     attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR;
     attr.val_len = strlen(CLIENT_AP_PASSPHRASE);
     attr.max_val_len = APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE - 1; // reserve one byte for end of string
-    attr.p_val = wifi_introducer_char_nw_passphrase_value;
+    attr.p_val = wifi_introducer_char_passphrase_value;
     attr.p_cback = app_ble_wifi_introducer_ssid_password_callback;
     app_ble_wifi_introducer_add_char(&attr);
 
-    /* Declare Device Info service */
-    service_uuid.len = LEN_UUID_16;
-    service_uuid.uu.uuid16 = UUID_SERVCLASS_DEVICE_INFO;
-    srvc_attr_index = app_ble_wifi_introducer_create_service(&service_uuid, 10);
-    if (srvc_attr_index < 0)
-    {
-        APP_ERROR0("Device Info Service Create Fail");
-        return -1;
-    }
-
-    /* Declare characteristic Manufacturer Name */
-    memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
-    attr.attr_UUID.len = LEN_UUID_16;
-    attr.attr_UUID.uu.uuid16 = GATT_UUID_MANU_NAME;
-    attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
-    attr.perm = BSA_GATT_PERM_READ;
-    attr.prop = BSA_GATT_CHAR_PROP_BIT_READ;
-    attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR;
-    app_ble_wifi_introducer_add_char(&attr);
-
-    /* Declare characteristic Model Number */
-    memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
-    attr.attr_UUID.len = LEN_UUID_16;
-    attr.attr_UUID.uu.uuid16 = GATT_UUID_MODEL_NUMBER_STR;
-    attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
-    attr.perm = BSA_GATT_PERM_READ;
-    attr.prop = BSA_GATT_CHAR_PROP_BIT_READ;
-    attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR;
-    app_ble_wifi_introducer_add_char(&attr);
-
-    /* Declare characteristic System ID */
-    memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
-    attr.attr_UUID.len = LEN_UUID_16;
-    attr.attr_UUID.uu.uuid16 = GATT_UUID_SYSTEM_ID;
-    attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
-    attr.perm = BSA_GATT_PERM_READ;
-    attr.prop = BSA_GATT_CHAR_PROP_BIT_READ;
-    attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR;
-    app_ble_wifi_introducer_add_char(&attr);
-
-    /* Declare Battery service */
-    service_uuid.len = LEN_UUID_16;
-    service_uuid.uu.uuid16 = UUID_SERVCLASS_BATTERY;
-    srvc_attr_index = app_ble_wifi_introducer_create_service(&service_uuid, 10);
-    if (srvc_attr_index < 0)
-    {
-        APP_ERROR0("Battery Service Create Fail");
-        return -1;
-    }
-
-    /* Declare characteristic Battery Level */
-    memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
-    attr.attr_UUID.len = LEN_UUID_16;
-    attr.attr_UUID.uu.uuid16 = GATT_UUID_BATTERY_LEVEL;
-    attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
-    attr.perm = BSA_GATT_PERM_READ;
-    attr.prop = BSA_GATT_CHAR_PROP_BIT_READ;
-    attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR;
-    attr.val_len = attr.max_val_len = sizeof(wifi_introducer_char_battery_level_value);
-    attr.p_val = &wifi_introducer_char_battery_level_value;
-    attr.p_cback = app_ble_wifi_introducer_battery_level_callback;
-    app_ble_wifi_introducer_add_char(&attr);
     return 0;
 }
 
@@ -1005,12 +889,12 @@ static void app_ble_wifi_introducer_ssid_name_callback(tBSA_BLE_EVT event,
         }
         if (app_ble_wifi_introducer_cb.attr[attr_index].val_len >= APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE)
         {
-             APP_ERROR0("Wrong wifi_introducer_char_nw_ssid_value length");
+             APP_ERROR0("Wrong wifi_introducer_char_ssid_value length");
 	     return;
         }
-        wifi_introducer_char_nw_ssid_value[app_ble_wifi_introducer_cb.attr[attr_index].val_len] = 0;
+        wifi_introducer_char_ssid_value[app_ble_wifi_introducer_cb.attr[attr_index].val_len] = 0;
         wifi_introducer_ssid_name = TRUE;
-        APP_INFO1("write ssid value: %s", wifi_introducer_char_nw_ssid_value);
+        APP_INFO1("write ssid value: %s", wifi_introducer_char_ssid_value);
         is_ssid_configured();
     }
 }
@@ -1040,12 +924,12 @@ static void app_ble_wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
         }
         if (app_ble_wifi_introducer_cb.attr[attr_index].val_len >= APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE)
         {
-             APP_ERROR0("Wrong wifi_introducer_char_nw_passphrase_value length");
+             APP_ERROR0("Wrong wifi_introducer_char_passphrase_value length");
 	     return;
         }
-        wifi_introducer_char_nw_passphrase_value[app_ble_wifi_introducer_cb.attr[attr_index].val_len] = 0;
+        wifi_introducer_char_passphrase_value[app_ble_wifi_introducer_cb.attr[attr_index].val_len] = 0;
         wifi_introducer_ssid_password= TRUE;
-        APP_INFO1("write passphrase value: %s", wifi_introducer_char_nw_passphrase_value);
+        APP_INFO1("write passphrase value: %s", wifi_introducer_char_passphrase_value);
         is_ssid_configured();
     }
 }
@@ -1071,8 +955,8 @@ static BOOLEAN start_wpa_supplicant(void)
     fprintf(fp, "%s\n", "ctrl_interface=/var/run/wpa_supplicant");
     fprintf(fp, "%s\n", "ap_scan=1");
     fprintf(fp, "%s\n", "network={");
-    fprintf(fp, "%s%s%s\n", "ssid=\"", wifi_introducer_char_nw_ssid_value, "\"");
-    fprintf(fp, "%s%s%s\n", "psk=\"", wifi_introducer_char_nw_passphrase_value, "\"");
+    fprintf(fp, "%s%s%s\n", "ssid=\"", wifi_introducer_char_ssid_value, "\"");
+    fprintf(fp, "%s%s%s\n", "psk=\"", wifi_introducer_char_passphrase_value, "\"");
     fprintf(fp, "%s\n", "key_mgmt=WPA-PSK");
     fprintf(fp, "%s\n", "}");
 
@@ -1118,25 +1002,10 @@ static void is_ssid_configured(void)
             APP_ERROR0("start wpa_supplicant failed");
         }
 
+        wifi_introducer_ssid_name = FALSE;
+        wifi_introducer_ssid_password = FALSE;
         app_unlock_mutex(&join_mutex);
     }
-}
-
-/*******************************************************************************
-**
-** Function         app_ble_wifi_introducer_battery_level_callback
-**
-** Description      APP BLE wifi introducer Battery Level callback.
-**                        Dummy battery value read increment
-**
-** Returns          void
-**
-*******************************************************************************/
-static void app_ble_wifi_introducer_battery_level_callback(tBSA_BLE_EVT event,
-                  tBSA_BLE_MSG *p_data)
-{
-    if ((event == BSA_BLE_SE_READ_EVT) && (wifi_introducer_char_battery_level_value++ > 99))
-        wifi_introducer_char_battery_level_value = 0;
 }
 
 /*******************************************************************************
@@ -1156,24 +1025,6 @@ static void app_ble_wifi_introducer_ccc_callback(tBSA_BLE_EVT event,
         APP_INFO0("app_ble_wifi_introducer_ccc_callback");
         APP_INFO1("wifi_introducer_characteristic_notify_characteristic_client_configuration = %d" ,
            wifi_introducer_characteristic_notify_characteristic_client_configuration);
-    }
-}
-
-/*******************************************************************************
-**
-** Function         app_ble_wifi_introducer_nw_security_callback
-**
-** Description      APP BLE wifi introducer NW Security callback.
-**
-** Returns          void
-**
-*******************************************************************************/
-static void app_ble_wifi_introducer_nw_security_callback(tBSA_BLE_EVT event,
-                  tBSA_BLE_MSG *p_data)
-{
-    if (event == BSA_BLE_SE_WRITE_EVT)
-    {
-        APP_INFO0("write security value");
     }
 }
 
@@ -1307,10 +1158,8 @@ void app_ble_wifi_introducer_display(void)
     APP_INFO1("Notify CCC : 0x%x",
         wifi_introducer_characteristic_notify_characteristic_client_configuration);
     APP_INFO1("Notify Value : %d", wifi_introducer_char_notify_value);
-    APP_INFO1("Security Value : %d", wifi_introducer_char_nw_security_value);
-    APP_INFO1("SSID : %s", wifi_introducer_char_nw_ssid_value);
-    APP_INFO1("Passphrase : %s", wifi_introducer_char_nw_passphrase_value);
-    APP_INFO1("Battery Level : %d", wifi_introducer_char_battery_level_value);
+    APP_INFO1("SSID : %s", wifi_introducer_char_ssid_value);
+    APP_INFO1("Passphrase : %s", wifi_introducer_char_passphrase_value);
     APP_INFO1("Variables - wifi_introducer_ssid_name : %d, wifi_introducer_ssid_password : %d",
         wifi_introducer_ssid_name, wifi_introducer_ssid_password);
     return;
@@ -1392,12 +1241,12 @@ static void app_ble_wifi_introducer_wifi_join_thread(void)
            wiced_network_down( WICED_STA_INTERFACE );
         }
         */
-        if (wifi_find_ap((char*)wifi_introducer_char_nw_ssid_value))
+        if (wifi_find_ap((char*)wifi_introducer_char_ssid_value))
         {
             APP_INFO0("print_wifi_scan_result");
         }
 
-        result_wifi_join = wifi_join((char*)wifi_introducer_char_nw_ssid_value, (char*)wifi_introducer_char_nw_passphrase_value);
+        result_wifi_join = wifi_join((char*)wifi_introducer_char_ssid_value, (char*)wifi_introducer_char_passphrase_value);
         if (!result_wifi_join)
         {
              APP_INFO0("Join Failed!!!");
@@ -1540,27 +1389,14 @@ static void dueros_wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
         val_len = app_ble_wifi_introducer_cb.attr[attr_index].val_len;
         if (val_len >= APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE)
         {
-            APP_ERROR0("Wrong wifi_introducer_char_nw_ssid_value length");
+            APP_ERROR0("Wrong wifi_introducer_char_ssid_value length");
 	        return;
         }
-        dueros_characteristic_value[val_len] = 0;
+        wifi_introducer_char_ssid_value[val_len] = 0;
 
         //APP_DUMP("callback write value", dueros_characteristic_value, val_len);
-        dueros_socket_send((char*)dueros_characteristic_value, val_len);
+        dueros_socket_send((char*)wifi_introducer_char_ssid_value, val_len);
     }
-}
-
-static void dueros_wifi_introducer_ccc_callback(tBSA_BLE_EVT event,
-            tBSA_BLE_MSG *p_data)
-{
-    if (event == BSA_BLE_SE_WRITE_EVT)
-    {
-        APP_INFO0("dueros_wifi_introducer_ccc_callback");
-        APP_INFO1("wifi_introducer_characteristic_notify_characteristic_client_configuration = %d" ,
-            wifi_introducer_characteristic_notify_characteristic_client_configuration);
-    }
-
-    //dueros_socket_send((char*)&wifi_introducer_characteristic_notify_characteristic_client_configuration, sizeof(UINT16));
 }
 
 static int dueros_wifi_introducer_create_gatt_database(void)
@@ -1572,17 +1408,16 @@ static int dueros_wifi_introducer_create_gatt_database(void)
     APP_INFO0("dueros_wifi_introducer_create_gatt_database");
 
     service_uuid.len = LEN_UUID_16;
-    service_uuid.uu.uuid16 = DUEROS_WIFI_CONFIG_SERVICE_UUID;
+    service_uuid.uu.uuid16 = WIFI_CONFIG_SERVICE_UUID;
     srvc_attr_index = app_ble_wifi_introducer_create_service(&service_uuid, 20);
-    if (srvc_attr_index < 0)
-    {
+    if (srvc_attr_index < 0) {
         APP_ERROR0("DuerOS Wifi Config Service Create Fail");
         return -1;
     }
 
     memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
     attr.attr_UUID.len = LEN_UUID_16;
-    attr.attr_UUID.uu.uuid16 = DUEROS_WIFI_CONFIG_CHARACTERISTIC_UUID;
+    attr.attr_UUID.uu.uuid16 = WIFI_CONFIG_CHAR_SSID_UUID;
     attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
     attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_WRITE; //17
     attr.prop = BSA_GATT_CHAR_PROP_BIT_READ | BSA_GATT_CHAR_PROP_BIT_WRITE |
@@ -1592,21 +1427,21 @@ static int dueros_wifi_introducer_create_gatt_database(void)
     //                BSA_GATT_CHAR_PROP_BIT_WRITE_NR; //14
 
     attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR;
-    attr.val_len = strlen(DUEROS_CHARACTERISTIC_VALUE);
+    attr.val_len = strlen(CLIENT_AP_SSID);
     attr.max_val_len = APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE - 1; // reserve one byte for end of string
-    attr.p_val = dueros_characteristic_value;
+    attr.p_val = wifi_introducer_char_ssid_value;
     attr.p_cback = dueros_wifi_introducer_ssid_password_callback;
     attr_index_notify = app_ble_wifi_introducer_add_char(&attr);
 
     memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));
     attr.attr_UUID.len = LEN_UUID_16;
-    attr.attr_UUID.uu.uuid16 = DUEROS_WIFI_CONFIG_DESCRIPTOR_UUID;
+    attr.attr_UUID.uu.uuid16 = WIFI_CONFIG_DESCRIPTOR_UUID;
     attr.service_id = app_ble_wifi_introducer_cb.attr[srvc_attr_index].service_id;
     attr.perm = BSA_GATT_PERM_READ | BSA_GATT_PERM_WRITE; //17
     attr.attr_type = BSA_GATTC_ATTR_TYPE_CHAR_DESCR;
     attr.val_len = attr.max_val_len = sizeof(UINT16);
     attr.p_val = &wifi_introducer_characteristic_notify_characteristic_client_configuration;
-    attr.p_cback = dueros_wifi_introducer_ccc_callback;
+    attr.p_cback = app_ble_wifi_introducer_ccc_callback;
     app_ble_wifi_introducer_add_char(&attr);
 
     return 0;
