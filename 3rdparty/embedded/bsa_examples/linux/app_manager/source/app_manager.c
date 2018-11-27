@@ -37,11 +37,7 @@
 #define APP_DEFAULT_BD_ADDR             {0xBE, 0xEF, 0xBE, 0xEF, 0x00, 0x01}
 
 /* Default local Name */
-#ifdef DUEROS
-#define APP_DEFAULT_BT_NAME             "DuerOS_"
-#else
 #define APP_DEFAULT_BT_NAME             "My BSA Bluetooth Device"
-#endif
 
 /* Default COD SetTopBox (Major Service = none) (MajorDevclass = Audio/Video) (Minor=STB) */
 #define APP_DEFAULT_CLASS_OF_DEVICE     {0x00, 0x04, 0x24}
@@ -1496,10 +1492,9 @@ int app_mgr_config(cmd_send_callback cb)
         app_xml_config.enable = TRUE;
         app_xml_config.discoverable = TRUE;
         app_xml_config.connectable = TRUE;
-        strncpy((char *)app_xml_config.name, APP_DEFAULT_BT_NAME, sizeof(app_xml_config.name));
-        app_xml_config.name[sizeof(app_xml_config.name) - 1] = '\0';
+        memset((char *)app_xml_config.name, 0, BD_NAME_LEN + 1);
 
-#ifdef DUEROS
+#ifdef BLUETOOTH_DATA_INTERACTION
         app_mgr_get_bt_config((char *)app_xml_config.bd_addr, BD_ADDR_LEN);
         sprintf((char *)app_xml_config.name, "%s%02X%02X", "DuerOS_",
             app_xml_config.bd_addr[4], app_xml_config.bd_addr[5]);

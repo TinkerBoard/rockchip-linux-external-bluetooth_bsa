@@ -32,10 +32,10 @@
 #include "app_manager.h"
 #include "app_socket.h"
 
-#ifdef DUEROS
+#ifdef BLUETOOTH_DATA_INTERACTION
 extern tAPP_MGR_CB app_mgr_cb;
-static int dueros_socket_fd = -1;
-char sock_path[]="/data/bsa/config/socket_dueros";
+static int socket_fd = -1;
+char sock_path[]="/data/bsa/config/socket_data_interaction";
 #else
 tAPP_SOCKET app_socket;
 char sock_path[]="/data/bsa/config/socket_avk";
@@ -176,13 +176,13 @@ static void app_avk_cmd_send_callback(int msg, int status) {
 int app_avk_socket_send(int cmd) {
     int ret = -1;
 
-#ifdef DUEROS
+#ifdef BLUETOOTH_DATA_INTERACTION
     char msg[10];
     memset(msg, 0, 10);
     sprintf(msg, "%d", cmd);
 
     APP_DEBUG1("msg: %s, len: %d\n", msg, strlen(msg));
-    ret = socket_send(dueros_socket_fd, msg, strlen(msg));
+    ret = socket_send(socket_fd, msg, strlen(msg));
 #endif
 
     return ret;
@@ -199,7 +199,7 @@ int app_avk_socket_send(int cmd) {
  ** Returns          void
  **
  *******************************************************************************/
-#ifdef DUEROS
+#ifdef BLUETOOTH_DATA_INTERACTION
 int main(int argc, char **argv)
 {
     int choice, bytes, mode;
@@ -236,8 +236,8 @@ int main(int argc, char **argv)
 
     app_avk_init(NULL);
 
-    dueros_socket_fd = setup_socket_client(sock_path);
-    if (dueros_socket_fd < 0) {
+    socket_fd = setup_socket_client(sock_path);
+    if (socket_fd < 0) {
         APP_ERROR0("Fail to connect server socket\n");
         return 0;
     }
@@ -246,7 +246,7 @@ int main(int argc, char **argv)
 
     do {
         memset(msg, 0, sizeof(msg));
-        bytes = socket_recieve(dueros_socket_fd, msg, sizeof(msg));
+        bytes = socket_recieve(socket_fd, msg, sizeof(msg));
         if (bytes == 0 ) {
             APP_DEBUG0("server leaved, break\n");
             break;
@@ -267,7 +267,7 @@ int main(int argc, char **argv)
     /* Close BSA before exiting (to release resources) */
     app_mgt_close();
 
-    teardown_socket_client(dueros_socket_fd);
+    teardown_socket_client(socket_fd);
 
     APP_DEBUG0("exit app avk");
     return 0;

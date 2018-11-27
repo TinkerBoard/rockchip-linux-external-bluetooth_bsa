@@ -30,6 +30,6 @@ incdirs := $(incdirs) $(srcdirs)
 # include the build rules for all the sample applications
 include $(BLUETOOTH_3RD_DIR)/embedded/$(customer)/$(project)/app_common/build/make_sample_apps.common
 
-ifeq ($(DUERCLIENTSDK),y)
-    CCFLAGS += -DDUEROS
+ifeq ($(BSA_DATA_INTERACTION),y)
+    CCFLAGS += -DBLUETOOTH_DATA_INTERACTION
 endif

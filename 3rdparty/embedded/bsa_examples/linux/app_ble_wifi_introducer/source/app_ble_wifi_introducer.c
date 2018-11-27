@@ -44,7 +44,7 @@ static tAPP_THREAD  join_thread;
 static tAPP_MUTEX join_mutex;
 static BOOLEAN wifi_join_return_value = TRUE; // This is for simulate Wifi Join Function
 
-#ifdef DUEROS
+#ifdef BLUETOOTH_DATA_INTERACTION
 BD_NAME wifi_introducer_device_name;
 #else
 static UINT8 wifi_introducer_device_name[ ] = "WiFiInt"; // This is for Adv only
@@ -69,26 +69,26 @@ static tAPP_BLE_WIFI_INTRODUCER_CB app_ble_wifi_introducer_cb;
 static BOOLEAN wifi_introducer_ssid_name = FALSE;
 static BOOLEAN wifi_introducer_ssid_password = FALSE;
 
-#ifdef DUEROS
+#ifdef BLUETOOTH_DATA_INTERACTION
 /* Must be the same as the maximum length of data sent by ble_send_data_cb,
  * otherwise the data will be transmitted to the dueros app will be wrong,
  * the reason is unknown.
  */
-#define DUEROS_SOCKET_RECV_LEN 20
+#define SOCKET_RECV_LEN 20
 
-static pthread_t dueros_tid = 0;
-static int dueros_socket_done = 0;
-static int dueros_socket_fd = -1;
-static char dueros_socket_path[] = "/data/bsa/config/socket_dueros";
+static pthread_t tid = 0;
+static int socket_done = 0;
+static int socket_fd = -1;
+static char socket_path[] = "/data/bsa/config/socket_data_interaction";
 
-static void dueros_set_device_name(void);
-static int dueros_socket_send(char *msg, int len);
-static void *dueros_socket_recieve(void *arg);
-static int dueros_socket_thread_create(void);
-static void dueros_socket_thread_delete(void);
-static void dueros_wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
+static void set_device_name(void);
+static int socket_send_data(char *msg, int len);
+static void *socket_recieve_data(void *arg);
+static int socket_thread_create(void);
+static void socket_thread_delete(void);
+static void wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
                   tBSA_BLE_MSG *p_data);
-static int dueros_wifi_introducer_create_gatt_database(void);
+static int wifi_introducer_create_gatt_database(void);
 #endif
 
 /*
@@ -582,8 +582,8 @@ static void app_ble_wifi_introducer_profile_cback(tBSA_BLE_EVT event,
     case BSA_BLE_SE_START_EVT:
         APP_INFO1("BSA_BLE_SE_START_EVT status:%d", p_data->ser_start.status);
 
-#ifdef DUEROS
-        dueros_socket_thread_create();
+#ifdef BLUETOOTH_DATA_INTERACTION
+        socket_thread_create();
 #endif
         break;
 
@@ -716,8 +716,8 @@ static void app_ble_wifi_introducer_profile_cback(tBSA_BLE_EVT event,
         APP_INFO1("conn_id:0x%x", p_data->ser_close.conn_id);
         APP_INFO1("app_ble_wifi_introducer_connection_down  conn_id:%d reason:%d", p_data->ser_close.conn_id, p_data->ser_close.reason);
 
-#ifdef DUEROS
-        dueros_socket_thread_delete();
+#ifdef BLUETOOTH_DATA_INTERACTION
+        socket_thread_delete();
 #endif
         ble_wifi_config = 0;
 
@@ -760,8 +760,8 @@ void app_ble_wifi_introducer_init(void)
     memset(&app_ble_wifi_introducer_cb, 0, sizeof(app_ble_wifi_introducer_cb));
     app_ble_wifi_introducer_cb.conn_id = BSA_BLE_INVALID_CONN;
 
-#ifdef DUEROS
-    dueros_set_device_name();
+#ifdef BLUETOOTH_DATA_INTERACTION
+    set_device_name();
 #endif
 
     app_init_mutex(&join_mutex);
@@ -788,8 +788,8 @@ void app_ble_wifi_introducer_gatt_server_init(void)
     app_ble_wifi_introducer_register();
     GKI_delay(1000);
 
-#ifdef DUEROS
-    dueros_wifi_introducer_create_gatt_database();
+#ifdef BLUETOOTH_DATA_INTERACTION
+    wifi_introducer_create_gatt_database();
 #else
     app_ble_wifi_introducer_create_gatt_database();
 #endif
@@ -1294,11 +1294,11 @@ int app_ble_wifi_introducer_create_wifi_join_thread(void)
 
 /*******************************************************************************
  **
- ** Description   dueros wifi introdecer function implementations
+ ** Description: wifi introdecer function implementations
  **
  *******************************************************************************/
-#ifdef DUEROS
-static void dueros_set_device_name(void) {
+#ifdef BLUETOOTH_DATA_INTERACTION
+static void set_device_name(void) {
     BD_ADDR bd_addr;
 
     memset((char *)wifi_introducer_device_name, 0, BD_NAME_LEN + 1);
@@ -1309,24 +1309,24 @@ static void dueros_set_device_name(void) {
     APP_DEBUG1("Bt Device Name: %s", (char *)wifi_introducer_device_name);
 }
 
-static int dueros_socket_send(char *msg, int len) {
-    return socket_send(dueros_socket_fd, msg, len);
+static int socket_send_data(char *msg, int len) {
+    return socket_send(socket_fd, msg, len);
 }
 
-static void *dueros_socket_recieve(void *arg) {
+static void *socket_recieve_data(void *arg) {
     int bytes = 0;
-    char data[DUEROS_SOCKET_RECV_LEN];
+    char data[SOCKET_RECV_LEN];
     int buf_size = app_ble_wifi_introducer_cb.attr[attr_index_notify].max_val_len;
 
-    dueros_socket_fd = setup_socket_client(dueros_socket_path);
-    if (dueros_socket_fd < 0) {
+    socket_fd = setup_socket_client(socket_path);
+    if (socket_fd < 0) {
         APP_ERROR0("Fail to connect server socket\n");
         goto exit;
     }
 
-    while (dueros_socket_done) {
+    while (socket_done) {
         memset(data, 0, sizeof(data));
-        bytes = socket_recieve(dueros_socket_fd, data, sizeof(data));
+        bytes = socket_recieve(socket_fd, data, sizeof(data));
         if (bytes <= 0) {
             APP_DEBUG0("Server leaved, break\n");
             break;
@@ -1345,37 +1345,37 @@ static void *dueros_socket_recieve(void *arg) {
     }
 
 exit:
-    APP_DEBUG0("Exit dueros socket thread\n");
+    APP_DEBUG0("Exit socket recieve data thread\n");
     pthread_exit(0);
 }
 
-static int dueros_socket_thread_create(void) {
-    dueros_socket_done = 1;
-    if (pthread_create(&dueros_tid, NULL, dueros_socket_recieve, NULL)) {
-        APP_ERROR0("Create dueros socket thread failed\n");
+static int socket_thread_create(void) {
+    socket_done = 1;
+    if (pthread_create(&tid, NULL, socket_recieve_data, NULL)) {
+        APP_ERROR0("Create socket thread failed\n");
         return -1;
     }
 
     return 0;
 }
 
-static void dueros_socket_thread_delete(void) {
-    dueros_socket_done = 0;
-    teardown_socket_client(dueros_socket_fd);
+static void socket_thread_delete(void) {
+    socket_done = 0;
+    teardown_socket_client(socket_fd);
 
-    if (dueros_tid) {
-        pthread_join(dueros_tid, NULL);
-        dueros_tid = 0;
+    if (tid) {
+        pthread_join(tid, NULL);
+        tid = 0;
     }
 }
 
-static void dueros_wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
+static void wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
                   tBSA_BLE_MSG *p_data)
 {
     int attr_index;
     int val_len;
 
-    APP_INFO0("dueros_wifi_introducer_ssid_password_callback");
+    APP_INFO0("wifi_introducer_ssid_password_callback");
 
     if (event == BSA_BLE_SE_WRITE_EVT)
     {
@@ -1394,24 +1394,24 @@ static void dueros_wifi_introducer_ssid_password_callback(tBSA_BLE_EVT event,
         }
         wifi_introducer_char_ssid_value[val_len] = 0;
 
-        //APP_DUMP("callback write value", dueros_characteristic_value, val_len);
-        dueros_socket_send((char*)wifi_introducer_char_ssid_value, val_len);
+        //APP_DUMP("callback write value", wifi_introducer_char_ssid_value, val_len);
+        socket_send_data((char*)wifi_introducer_char_ssid_value, val_len);
     }
 }
 
-static int dueros_wifi_introducer_create_gatt_database(void)
+static int wifi_introducer_create_gatt_database(void)
 {
     int srvc_attr_index;
     tBT_UUID service_uuid;
     tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE attr;
 
-    APP_INFO0("dueros_wifi_introducer_create_gatt_database");
+    APP_INFO0("wifi_introducer_create_gatt_database");
 
     service_uuid.len = LEN_UUID_16;
     service_uuid.uu.uuid16 = WIFI_CONFIG_SERVICE_UUID;
     srvc_attr_index = app_ble_wifi_introducer_create_service(&service_uuid, 20);
     if (srvc_attr_index < 0) {
-        APP_ERROR0("DuerOS Wifi Config Service Create Fail");
+        APP_ERROR0("Wifi Config Service Create Fail");
         return -1;
     }
 
@@ -1430,7 +1430,7 @@ static int dueros_wifi_introducer_create_gatt_database(void)
     attr.val_len = strlen(CLIENT_AP_SSID);
     attr.max_val_len = APP_BLE_WIFI_INTRODUCER_GATT_ATTRIBUTE_SIZE - 1; // reserve one byte for end of string
     attr.p_val = wifi_introducer_char_ssid_value;
-    attr.p_cback = dueros_wifi_introducer_ssid_password_callback;
+    attr.p_cback = wifi_introducer_ssid_password_callback;
     attr_index_notify = app_ble_wifi_introducer_add_char(&attr);
 
     memset(&attr, 0, sizeof(tAPP_BLE_WIFI_INTRODUCER_ATTRIBUTE));

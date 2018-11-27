@@ -298,8 +298,8 @@ int main(int argc, char **argv)
 
     do
     {
-        app_mgr_display_main_menu();
         if (use_socket == 0) {
+            app_mgr_display_main_menu();
             choice = app_get_choice("Select action");
         } else {
             memset(msg,0,sizeof(msg));
