@@ -27,6 +27,29 @@
 /* Macro to test if bits in __b are all set in __v */
 #define APP_BITS_SET(__v, __b) (((__v) & (__b)) == (__b))
 
+#if 1
+/* Macro to print an message */
+#define APP_ERROR0(format)         printf("ERROR: %s: " format "\n", __func__)
+#define APP_ERROR1(format, ...)    printf("ERROR: %s: " format "\n", __func__, ##__VA_ARGS__)
+
+#define APP_INFO0(format)          printf("INFO: %s: " format "\n", __func__)
+#define APP_INFO1(format, ...)     printf("INFO: %s: " format "\n", __func__, ##__VA_ARGS__)
+
+#ifdef APP_TRACE_NODEBUG
+#define APP_DEBUG0(format) do {} while(0)
+#define APP_DEBUG1(format, ...) do {} while(0)
+#define APP_DUMP(prefix,pointer,length) do {} while(0)
+#else /* APP_TRACE_NODEBUG */
+#define APP_DEBUG0(format)         printf("DEBUG: %s: " format "\n", __func__)
+#define APP_DEBUG1(format, ...)    printf("DEBUG: %s: " format "\n", __func__, ##__VA_ARGS__)
+#define APP_DUMP(prefix,pointer,length)                                                 \
+do                                                                                      \
+{                                                                                       \
+    scru_dump_hex(pointer, (const char *)prefix, length, TRACE_LAYER_NONE, TRACE_TYPE_DEBUG); \
+} while(0)
+#endif
+
+#else
 /* Macro to print an error message */
 #define APP_ERROR0(format)                                                      \
 do {                                                                            \
@@ -61,7 +84,7 @@ do {                                                                            
 do                                                                              \
 {                                                                               \
     scru_dump_hex(pointer, prefix, length, TRACE_LAYER_NONE, TRACE_TYPE_DEBUG); \
-} while(0)                                                                      \
+} while(0)
 
 #endif /* !APP_TRACE_NODEBUG */
 
@@ -75,8 +98,7 @@ do {                                                                            
 do {                                                                            \
     app_print_info(format "\n", __VA_ARGS__);                                   \
 } while (0)
-
-
+#endif
 /*******************************************************************************
  **
  ** Function         app_get_cod_string
@@ -88,7 +110,7 @@ do {                                                                            
  ** Returns          void
  **
  *******************************************************************************/
-char *app_get_cod_string(const DEV_CLASS class_of_device);
+const char *app_get_cod_string(const DEV_CLASS class_of_device);
 
 /*******************************************************************************
  **

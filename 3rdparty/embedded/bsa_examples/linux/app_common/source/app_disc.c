@@ -260,7 +260,7 @@ static void app_disc_parse_eir_uuid16(char *p_type, UINT8 *p_eir, UINT8 data_len
         }
         else
         {
-            APP_INFO1("\t        0x%04X [Unknown]", uuid16, p_desc);
+            APP_INFO1("\t        0x%04X [Unknown]", uuid16);
         }
     }
 }
@@ -559,7 +559,7 @@ static void app_disc_parse_eir_device_id(UINT8 *p_eir, UINT8 data_length)
  ** Returns          void
  **
  *******************************************************************************/
-void app_disc_parse_eir(UINT8 *p_eir)
+void app_disc_parse_eir(UINT8 *p_eir, UINT8 *playrole)
 {
     UINT8 *p = p_eir;
     UINT8 eir_length;
@@ -796,7 +796,7 @@ void app_generic_disc_cback(tBSA_DISC_EVT event, tBSA_DISC_MSG *p_data)
 
         if (p_data->disc_new.eir_data[0])
         {
-            app_disc_parse_eir(p_data->disc_new.eir_data);
+            app_disc_parse_eir(p_data->disc_new.eir_data, NULL);
         }
         break;
 

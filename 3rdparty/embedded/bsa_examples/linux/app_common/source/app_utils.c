@@ -73,7 +73,7 @@ static char *app_get_time_stamp(char *p_buffer, int buffer_size);
  ** Returns         Pointer on string containing device type
  **
  *******************************************************************************/
-char *app_get_cod_string(const DEV_CLASS class_of_device)
+const char *app_get_cod_string(const DEV_CLASS class_of_device)
 {
     UINT8 major;
 

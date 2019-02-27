@@ -26,6 +26,12 @@ typedef struct
     tBSA_DISC_DEV devs[APP_DISC_NB_DEVICES];
 } tAPP_DISCOVERY_CB;
 
+enum {
+    APP_DISCOVERYING = 1,
+    APP_DISCOVERY_COMPLETE,
+    APP_DISCOVERY_IDEL,
+};
+
 /*
  * Globals
  */
@@ -241,7 +247,7 @@ int app_disc_set_nb_devices(int nb_devices);
  ** Returns          void
  **
  *******************************************************************************/
-void app_disc_parse_eir(UINT8 *p_eir);
+void app_disc_parse_eir(UINT8 *p_eir, UINT8 *playrole);
 
 /*******************************************************************************
  **
@@ -253,5 +259,16 @@ void app_disc_parse_eir(UINT8 *p_eir);
  **
  *******************************************************************************/
 int app_disc_read_remote_device_name(BD_ADDR bd_addr,tBSA_TRANSPORT transport);
+
+/*******************************************************************************
+ **
+ ** Function         app_disc_complete
+ **
+ ** Description      Device discovery complete
+ **
+ ** Returns          none
+ **
+ *******************************************************************************/
+int app_disc_complete(void);
 
 #endif

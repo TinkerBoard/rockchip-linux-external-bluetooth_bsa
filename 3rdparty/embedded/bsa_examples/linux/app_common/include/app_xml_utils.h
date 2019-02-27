@@ -164,7 +164,7 @@ int app_xml_close_tag(int fd, const char *tag, BOOLEAN cr);
  ** Returns         status (negative code if error, positive if successful)
  **
  *******************************************************************************/
-int app_xml_open_tag_with_value(int fd, char *tag, int value);
+int app_xml_open_tag_with_value(int fd, const char *tag, int value);
 
 /*******************************************************************************
  **

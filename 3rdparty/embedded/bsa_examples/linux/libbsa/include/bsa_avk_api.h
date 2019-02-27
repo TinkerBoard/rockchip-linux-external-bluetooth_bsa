@@ -1188,7 +1188,7 @@ tBSA_STATUS BSA_AvkEnableInit(tBSA_AVK_ENABLE *pEnable);
 **                  be called before other function in the AV API are
 **                  called.
 **
-** Returns          void
+** Returns          tBSA_STATUS
 **
 *******************************************************************************/
 tBSA_STATUS BSA_AvkEnable(tBSA_AVK_ENABLE *pEnable);
@@ -1211,7 +1211,7 @@ tBSA_STATUS BSA_AvkDisableInit(tBSA_AVK_DISABLE *p_disable);
 ** Description      Disable the advanced audio/video service.
 **
 **
-** Returns          void
+** Returns          tBSA_STATUS
 **
 *******************************************************************************/
 tBSA_STATUS BSA_AvkDisable(tBSA_AVK_DISABLE *pDisable);

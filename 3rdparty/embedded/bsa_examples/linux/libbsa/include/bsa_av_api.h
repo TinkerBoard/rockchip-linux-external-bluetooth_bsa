@@ -311,7 +311,7 @@ typedef UINT8 tBSA_AV_CHANNEL_MODE;
 typedef struct
 {
     tBSA_AV_CODEC_ID id;            /* Codec ID (in terms of BSA) */
-    UINT8 info[AVDT_CODEC_SIZE];    /* Codec info (can be config or capabilities) */
+    UINT8 info[AVDT_CODEC_SIZE + 1];    /* Codec info (can be config or capabilities) */
 } tBSA_AV_CODEC_INFO;
 
 /*

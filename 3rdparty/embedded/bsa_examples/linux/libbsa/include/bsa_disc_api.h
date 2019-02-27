@@ -65,6 +65,7 @@ typedef struct
     UINT8 ble_addr_type;
     tBT_DEVICE_TYPE device_type;
 #endif
+    UINT8 playrole[48]; //Audio Sink? Audio Source? Unknow?
 } tBSA_DISC_REMOTE_DEV;
 
 typedef struct

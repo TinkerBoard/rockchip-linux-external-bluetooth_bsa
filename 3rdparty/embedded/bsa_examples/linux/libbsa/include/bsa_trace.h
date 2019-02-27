@@ -44,7 +44,7 @@ extern UINT8 appl_trace_level;
  **    Returns:
  **
  *********************************************************************************/
-UINT8 *scru_dump_hex (UINT8 *p_data, char *p_title, UINT16 len, UINT32 trace_layer, UINT32 trace_type);
+UINT8 *scru_dump_hex (UINT8 *p_data, const char *p_title, UINT16 len, UINT32 trace_layer, UINT32 trace_type);
 
 #ifdef __cplusplus
 }
