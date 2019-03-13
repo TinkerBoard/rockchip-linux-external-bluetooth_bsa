@@ -1470,12 +1470,9 @@ int app_mgr_config(cmd_send_callback cb)
 {
     int                 status;
     int                 index;
-    BD_ADDR             local_bd_addr = APP_DEFAULT_BD_ADDR;
     DEV_CLASS           local_class_of_device = APP_DEFAULT_CLASS_OF_DEVICE;
     tBSA_SEC_ADD_DEV    bsa_add_dev_param;
     tBSA_SEC_ADD_SI_DEV bsa_add_si_dev_param;
-    struct timeval      tv;
-    unsigned int        rand_seed;
 
     /*
      * The rest of the initialization function must be done
@@ -1493,21 +1490,17 @@ int app_mgr_config(cmd_send_callback cb)
         app_xml_config.discoverable = TRUE;
         app_xml_config.connectable = TRUE;
         memset((char *)app_xml_config.name, 0, BD_NAME_LEN + 1);
+        app_mgr_get_bt_config((char *)app_xml_config.bd_addr, BD_ADDR_LEN);
 
 #ifdef BLUETOOTH_DATA_INTERACTION
-        app_mgr_get_bt_config((char *)app_xml_config.bd_addr, BD_ADDR_LEN);
         sprintf((char *)app_xml_config.name, "%s%02X%02X", "DuerOS_",
             app_xml_config.bd_addr[4], app_xml_config.bd_addr[5]);
-        APP_DEBUG1("device name: %s", app_xml_config.name);
 #else
-        bdcpy(app_xml_config.bd_addr, local_bd_addr);
-        /* let's use a random number for the last two bytes of the BdAddr */
-        gettimeofday(&tv, NULL);
-        rand_seed = tv.tv_sec * tv.tv_usec * getpid();
-        app_xml_config.bd_addr[4] = rand_r(&rand_seed);
-        app_xml_config.bd_addr[5] = rand_r(&rand_seed);
-        sprintf((char *)app_xml_config.name, "My BSA Bluetooth Device %02x%02x", app_xml_config.bd_addr[4], app_xml_config.bd_addr[5]);
+        sprintf((char *)app_xml_config.name, "My BSA Bluetooth Device %02X%02X",
+            app_xml_config.bd_addr[4], app_xml_config.bd_addr[5]);
 #endif
+
+        APP_DEBUG1("device name: %s", app_xml_config.name);
 
         memcpy(app_xml_config.class_of_device, local_class_of_device, sizeof(DEV_CLASS));
         strncpy(app_xml_config.root_path, APP_DEFAULT_ROOT_PATH, sizeof(app_xml_config.root_path));
