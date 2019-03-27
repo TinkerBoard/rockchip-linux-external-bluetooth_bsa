@@ -12,4 +12,4 @@
 #include "bt_types.h"
 
 const UINT8 bsa_version_string[] = "BSA0107_00.26.00";
-const UINT8 bsa_version_info_string[] = "amlogic_kernel4.9_init_20170406";
+const UINT8 bsa_version_info_string[] = "rockchip_kernel4.4_init_20170406";
