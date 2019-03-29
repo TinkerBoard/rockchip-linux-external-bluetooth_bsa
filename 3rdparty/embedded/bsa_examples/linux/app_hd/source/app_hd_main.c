@@ -176,7 +176,7 @@ int main(int argc, char **argv)
             break;
 
         case APP_HD_MENU_DISC:
-            app_disc_start_regular(NULL);
+            app_disc_start_regular(NULL, 0);
             break;
 
         case APP_HD_MENU_LISTEN:

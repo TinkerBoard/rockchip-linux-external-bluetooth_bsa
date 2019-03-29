@@ -2447,7 +2447,7 @@ void app_dg_disc_and_get_service_list()
     app_dg_cb.disc_get_srv_list_start = TRUE;
     app_dg_cb.disc_index = 0;
     /* start regular discovery */
-    app_disc_start_regular(app_dg_disc_cback);
+    app_disc_start_regular(app_dg_disc_cback, 0);
 }
 
 

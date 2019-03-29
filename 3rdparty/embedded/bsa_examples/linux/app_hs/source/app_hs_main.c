@@ -163,7 +163,7 @@ int main(int argc, char **argv)
         {
         case APP_HS_KEY_DISC_AG:
             /* Example to perform Device discovery (in blocking mode) */
-            app_disc_start_regular(NULL);
+            app_disc_start_regular(NULL, 0);
             break;
 
         case APP_HS_KEY_OPEN:

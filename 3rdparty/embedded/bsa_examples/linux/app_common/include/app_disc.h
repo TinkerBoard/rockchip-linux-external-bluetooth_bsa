@@ -69,7 +69,7 @@ void app_disc_cback(tBSA_DISC_EVT event, tBSA_DISC_MSG *p_data);
  ** Returns          int
  **
  *******************************************************************************/
-int app_disc_start_regular(tBSA_DISC_CBACK *p_custom_disc_cback);
+int app_disc_start_regular(tBSA_DISC_CBACK *p_custom_disc_cback, int duration);
 
 /*******************************************************************************
  **

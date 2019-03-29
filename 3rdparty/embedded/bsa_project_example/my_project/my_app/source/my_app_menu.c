@@ -255,7 +255,7 @@ void my_app_manager_menu(void)
 
         case APP_MGR_MENU_DISCOVERY:
             /* Example to perform Device discovery */
-            app_disc_start_regular(NULL);
+            app_disc_start_regular(NULL, 0);
             break;
 
         case APP_MGR_MENU_BOND:
@@ -728,7 +728,7 @@ void my_app_avk_menu(void)
         {
         case APP_AVK_MENU_DISCOVERY:
             /* Example to perform Device discovery (in blocking mode) */
-            app_disc_start_regular(NULL);
+            app_disc_start_regular(NULL, 0);
             break;
 
         case APP_AVK_MENU_ENABLE:

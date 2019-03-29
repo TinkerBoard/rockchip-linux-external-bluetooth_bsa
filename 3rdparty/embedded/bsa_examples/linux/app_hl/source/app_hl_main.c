@@ -170,7 +170,7 @@ int main (int argc, char **argv)
 
         case APP_HL_MENU_DISC:
             /* Example to perform Device discovery */
-            app_disc_start_regular(NULL);
+            app_disc_start_regular(NULL, 0);
             break;
 
         case APP_HL_MENU_COD_DISC:

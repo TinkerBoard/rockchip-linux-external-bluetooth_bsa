@@ -346,7 +346,7 @@ int main(int argc, char **argv)
         switch (choice) {
         case APP_AVK_MENU_DISCOVERY:
             /* Example to perform Device discovery (in blocking mode) */
-            app_disc_start_regular(NULL);
+            app_disc_start_regular(NULL, 0);
             break;
 
         case APP_AVK_MENU_REGISTER:

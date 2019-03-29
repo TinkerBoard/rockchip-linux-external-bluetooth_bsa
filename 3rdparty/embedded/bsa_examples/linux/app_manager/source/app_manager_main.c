@@ -321,7 +321,7 @@ int main(int argc, char **argv)
 
         case APP_MGR_MENU_DISCOVERY:
             /* Example to perform Device discovery */
-            app_disc_start_regular(NULL);
+            app_disc_start_regular(NULL, 0);
             break;
 
         case APP_MGR_MENU_DISCOVERY_TEST:
