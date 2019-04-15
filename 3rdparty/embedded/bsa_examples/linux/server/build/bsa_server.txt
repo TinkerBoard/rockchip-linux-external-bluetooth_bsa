@@ -177,7 +177,7 @@ GOEP_FS_INCLUDED = TRUE
 
 ##################################### DATA GATEWAY ###############################
 BTA_DG_INCLUDED = TRUE
-SPP_INCLUDED = FALSE
+SPP_INCLUDED = TRUE
 DUN_INCLUDED = TRUE
 
 ###################################### AUDIO GATEWAY #############################
@@ -243,7 +243,7 @@ BTA_PR_INCLUDED = FALSE
 
 ################################### AVRC - RC #############################
 BTA_RC_INCLUDED = TRUE
-AVRC_COVER_ART_INCLUDED = TRUE
+AVRC_COVER_ART_INCLUDED = FALSE
 
 ######################## ADVANCED AUDIO & VIDEO ########################
 AVCT_INCLUDED = TRUE
