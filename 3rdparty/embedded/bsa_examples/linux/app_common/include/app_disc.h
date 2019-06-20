@@ -18,7 +18,7 @@
 typedef void (tAPP_DISC_VIP_PID_CBACK)(BD_ADDR bd_addr, UINT16 vid, UINT16 pid);
 
 #ifndef APP_DISC_NB_DEVICES
-#define APP_DISC_NB_DEVICES 20
+#define APP_DISC_NB_DEVICES 120
 #endif
 
 typedef struct
