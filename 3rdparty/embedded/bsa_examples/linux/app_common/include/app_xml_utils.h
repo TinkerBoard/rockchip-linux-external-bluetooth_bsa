@@ -15,7 +15,7 @@
 #include "app_xml_param.h"
 
 #ifndef APP_MAX_NB_REMOTE_STORED_DEVICES
-#define APP_MAX_NB_REMOTE_STORED_DEVICES 10
+#define APP_MAX_NB_REMOTE_STORED_DEVICES 30
 #endif
 
 #ifndef APP_MAX_SI_DEVICES

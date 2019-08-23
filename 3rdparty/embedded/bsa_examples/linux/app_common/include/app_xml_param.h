@@ -48,6 +48,7 @@ typedef struct
     BOOLEAN in_use;
     BD_ADDR bd_addr;
     BOOLEAN latest_connect;
+    BOOLEAN is_connected;
     BD_NAME name;
     DEV_CLASS class_of_device;
     tBSA_SERVICE_MASK available_services;
@@ -123,6 +124,9 @@ int app_xml_update_name_db(tAPP_XML_REM_DEVICE *p_stored_device_db,
 
 int app_xml_update_latest_connect_db(tAPP_XML_REM_DEVICE *p_stored_device_db,
         int nb_device_max, BD_ADDR bd_addr);
+
+int app_xml_update_connected_state_db(tAPP_XML_REM_DEVICE *p_stored_device_db,
+        int nb_device_max, BD_ADDR bd_addr, BOOLEAN is_connected);
 
 int app_xml_update_key_db(tAPP_XML_REM_DEVICE *p_stored_device_db,
         int nb_device_max, BD_ADDR bd_addr, LINK_KEY link_key,
