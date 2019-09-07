@@ -16,6 +16,8 @@
 /* self sufficiency */
 /* for printf */
 #include <stdio.h>
+/*for syslog*/
+#include <syslog.h>
 /* for BD_ADDR and DEV_CLASS */
 #include "bt_types.h"
 /* for scru_dump_hex */
@@ -27,29 +29,33 @@
 /* Macro to test if bits in __b are all set in __v */
 #define APP_BITS_SET(__v, __b) (((__v) & (__b)) == (__b))
 
-#if 1
 /* Macro to print an message */
+//#define SYSLOG_DEBUG
+
+#ifdef SYSLOG_DEBUG
+#define LOG_TAG "CYPRESS_BSA"
+#define APP_ERROR0(format)         syslog(LOG_ERR, "[%s]%s: " format "\n", LOG_TAG, __func__)
+#define APP_ERROR1(format, ...)    syslog(LOG_ERR, "[%s]%s: " format "\n", LOG_TAG, __func__, ##__VA_ARGS__)
+#define APP_INFO0(format)          syslog(LOG_INFO, "[%s]%s: " format "\n", LOG_TAG, __func__)
+#define APP_INFO1(format, ...)     syslog(LOG_INFO, "[%s]%s: " format "\n", LOG_TAG, __func__, ##__VA_ARGS__)
+#define APP_DEBUG0(format)         syslog(LOG_DEBUG, "[%s]%s: " format "\n", LOG_TAG, __func__)
+#define APP_DEBUG1(format, ...)    syslog(LOG_DEBUG, "[%s]%s: " format "\n", LOG_TAG, __func__, ##__VA_ARGS__)
+#else
 #define APP_ERROR0(format)         printf("ERROR: %s: " format "\n", __func__)
 #define APP_ERROR1(format, ...)    printf("ERROR: %s: " format "\n", __func__, ##__VA_ARGS__)
-
 #define APP_INFO0(format)          printf("INFO: %s: " format "\n", __func__)
 #define APP_INFO1(format, ...)     printf("INFO: %s: " format "\n", __func__, ##__VA_ARGS__)
-
-#ifdef APP_TRACE_NODEBUG
-#define APP_DEBUG0(format) do {} while(0)
-#define APP_DEBUG1(format, ...) do {} while(0)
-#define APP_DUMP(prefix,pointer,length) do {} while(0)
-#else /* APP_TRACE_NODEBUG */
 #define APP_DEBUG0(format)         printf("DEBUG: %s: " format "\n", __func__)
 #define APP_DEBUG1(format, ...)    printf("DEBUG: %s: " format "\n", __func__, ##__VA_ARGS__)
+#endif
+
 #define APP_DUMP(prefix,pointer,length)                                                 \
 do                                                                                      \
 {                                                                                       \
     scru_dump_hex(pointer, (const char *)prefix, length, TRACE_LAYER_NONE, TRACE_TYPE_DEBUG); \
 } while(0)
-#endif
 
-#else
+#if 0
 /* Macro to print an error message */
 #define APP_ERROR0(format)                                                      \
 do {                                                                            \
