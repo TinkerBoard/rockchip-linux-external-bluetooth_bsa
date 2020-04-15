@@ -427,7 +427,7 @@ void my_app_hh_menu(void)
 
 #ifdef APP_BLE_INCLUDED
         case APP_HH_MENU_BLE_DISC:
-            app_disc_start_ble_regular(NULL);
+            app_disc_start_ble_regular(NULL, 0);
             break;
 #endif
 
@@ -1108,7 +1108,7 @@ static void my_app_ble_menu(void)
             break;
 
         case APP_DTV_BLE_MENU_DISCOVERY:
-            app_disc_start_ble_regular(NULL);
+            app_disc_start_ble_regular(NULL, 0);
             break;
 
         case APP_DTV_BLE_MENU_REMOVE:
