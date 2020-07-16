@@ -1967,7 +1967,7 @@ static int app_av_rc_send_register_volume_change_notify_vd_command(UINT8 rc_hand
     bsa_av_vd_cmd.data[7] = 0;
     bsa_av_vd_cmd.data[8] = 0;
     bsa_av_vd_cmd.length = 9;
-    bsa_av_vd_cmd.label = app_av_get_label(); /* Just used to distinguish commands */
+    bsa_av_vd_cmd.label = app_av_cb.label++; /* Just used to distinguish commands */
     status = BSA_AvVendorCmd(&bsa_av_vd_cmd);
     if (status != BSA_SUCCESS)
     {
