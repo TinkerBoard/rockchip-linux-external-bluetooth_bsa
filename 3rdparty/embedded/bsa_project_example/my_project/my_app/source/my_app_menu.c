@@ -277,7 +277,7 @@ void my_app_manager_menu(void)
 
         case APP_MGR_MENU_SVC_DISCOVERY:
             /* Example to perform Device Services discovery */
-            app_disc_start_services(BSA_ALL_SERVICE_MASK);
+            app_disc_start_services(BSA_ALL_SERVICE_MASK, 0);
             break;
 
         case APP_MGR_MENU_STOP_BT:
